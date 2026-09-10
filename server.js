@@ -151,7 +151,7 @@ async function getMyUserId(conn) {
 
 // ── Serve the front end for all other routes ─────────────────────────────────
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
