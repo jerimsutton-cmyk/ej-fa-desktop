@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ej-fa-desktop
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SF_LOGIN_URL
+        value: https://login.salesforce.com
+      - key: SF_USERNAME
+        sync: false
+      - key: SF_PASSWORD
+        sync: false
+      - key: SF_CONSUMER_KEY
+        sync: false
+      - key: SF_CONSUMER_SECRET
+        sync: false
