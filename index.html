@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Edward Jones FA App</title>
+<style>
+:root { color-scheme: light; --navy:#00305E; --blue:#0072CE; --yellow:#F5A800; --green:#2E844A; --light-bg:#F5F6F8; --white:#FFFFFF; --border:#E5E7EB; --text-dark:#111827; --text-mid:#374151; --text-light:#6B7280; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:auto;background:#ccc;}
+.chrome-window{display:flex;flex-direction:column;height:100vh;}
+.chrome-titlebar{background:#DEE1E6;height:36px;display:flex;align-items:center;padding:0 8px;gap:4px;flex-shrink:0;}
+.chrome-tab{background:white;border-radius:8px 8px 0 0;padding:0 12px;height:28px;display:flex;align-items:center;gap:6px;font-size:12px;color:#333;}
+.chrome-favicon{width:14px;height:14px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.chrome-favicon span{color:white;font-size:7px;font-weight:bold;}
+.chrome-urlbar{background:white;height:36px;display:flex;align-items:center;padding:0 12px;gap:8px;border-bottom:1px solid #ccc;flex-shrink:0;}
+.nav-btn{background:none;border:none;cursor:pointer;color:#666;font-size:14px;padding:4px;border-radius:50%;}
+.nav-btn:hover{background:#eee;}
+.address-bar{flex:1;background:#F1F3F4;border-radius:20px;padding:4px 12px;font-size:13px;color:#444;display:flex;align-items:center;gap:6px;}
+.app-body{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:60px;background:var(--navy);display:flex;flex-direction:column;align-items:center;padding:8px 0;flex-shrink:0;}
+.sidebar-logo{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
+.sidebar-logo span{color:white;font-weight:bold;font-size:14px;}
+.nav-item{width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border-radius:8px;gap:2px;}
+.nav-item:hover{background:rgba(255,255,255,0.1);}
+.nav-item.active{background:rgba(0,114,206,0.35);}
+.nav-item svg{width:20px;height:20px;stroke:rgba(255,255,255,0.65);fill:none;stroke-width:1.8;}
+.nav-item.active svg{stroke:white;}
+.nav-item span{font-size:8px;color:rgba(255,255,255,0.6);text-align:center;}
+.nav-item.active span{color:white;}
+.nav-spacer{flex:1;}
+.demo-nav{padding:4px 4px 8px;display:flex;flex-direction:column;gap:2px;align-items:center;width:100%;}
+.demo-label{font-size:7px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;}
+.demo-link{font-size:8px;color:rgba(255,255,255,0.5);cursor:pointer;text-align:center;padding:1px 2px;white-space:nowrap;}
+.demo-link:hover{color:rgba(255,255,255,0.9);}
+.main-content{flex:1;background:var(--light-bg);overflow-y:auto;display:flex;flex-direction:column;}
+.mgc-milestone{margin-bottom:10px;}
+.mgc-ms-hdr{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;}
+.mgc-chev{font-size:10px;color:#6b7280;width:14px;flex-shrink:0;}
+.mgc-circle{width:20px;height:20px;border-radius:50%;border:2px solid #d1d5db;flex-shrink:0;}
+.mgc-ms-title{font-weight:600;font-size:13px;color:#111827;}
+.mgc-ms-body{padding-left:22px;margin-top:6px;}
+.mgc-exercise{display:flex;gap:10px;align-items:flex-start;padding:8px 0;}
+.right-panel{width:240px;background:white;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;min-height:0;position:relative;}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.panel-tab{flex:1;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-bottom:2px solid transparent;}
+.panel-tab:hover{background:#f9fafb;}
+.panel-tab.active{border-bottom-color:var(--blue);}
+.panel-tab svg{width:16px;height:16px;stroke:var(--text-light);fill:none;stroke-width:1.8;}
+.panel-tab.active svg{stroke:var(--blue);}
+.panel-body{flex:1;overflow-y:auto;padding:12px;}
+.card{background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);padding:16px;margin-bottom:12px;}
+.card-header{font-size:13px;font-weight:600;color:var(--text-dark);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.card-header a{color:var(--blue);font-size:12px;text-decoration:none;font-weight:400;}
+.page-header{padding:14px 20px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.page-header h1{font-size:20px;font-weight:700;color:var(--text-dark);}
+.btn{padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;border:1px solid var(--border);background:white;color:var(--text-mid);}
+.btn:hover{background:#f9fafb;}
+.btn-primary{background:var(--blue);color:white;border-color:var(--blue);}
+.btn-primary:hover{background:#005fa8;}
+.btn-outline-blue{border-color:var(--blue);color:var(--blue);background:white;}
+.btn-outline-blue:hover{background:#EBF5FF;}
+.btn-sm{padding:3px 8px;font-size:11px;}
+.btn-red{background:#DC2626;color:white;border-color:#DC2626;}
+.widget-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px 20px;}
+.chip-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.chip{padding:3px 8px;border-radius:12px;font-size:11px;cursor:pointer;border:1px solid;}
+.chip-blue{border-color:var(--blue);color:var(--blue);}
+.chip-orange{border-color:#F59E0B;color:#D97706;}
+.chip-gray{border-color:var(--border);color:var(--text-light);}
+.mini-cal{margin-bottom:10px;}
+.mini-cal-row{display:flex;gap:2px;}
+.mini-cal-day{width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:50%;cursor:pointer;}
+.mini-cal-day.header{font-size:10px;color:var(--text-light);font-weight:500;cursor:default;}
+.mini-cal-day.today{background:var(--blue);color:white;font-weight:600;}
+.tab-row{display:flex;gap:6px;margin-bottom:10px;}
+.tab-pill{padding:4px 10px;border-radius:12px;font-size:11px;cursor:pointer;border:none;background:#f3f4f6;color:var(--text-mid);}
+.tab-pill.active{background:var(--blue);color:white;}
+.appt-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px solid #f3f4f6;font-size:12px;}
+.appt-time{color:var(--text-light);width:55px;flex-shrink:0;padding-top:1px;}
+.appt-name{font-weight:500;color:var(--text-dark);}
+.appt-client{color:var(--text-light);font-size:11px;}
+.appt-border{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;min-height:32px;}
+.optimize-box{background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;margin:4px 0;font-size:11px;}
+.optimize-title{font-weight:600;color:var(--text-dark);margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;}
+.optimize-box p{color:var(--text-mid);line-height:1.4;}
+.metric-boxes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;}
+.metric-box{background:#f9fafb;border-radius:6px;padding:8px;text-align:center;}
+.metric-label{font-size:10px;color:var(--text-light);margin-bottom:3px;}
+.metric-value{font-size:17px;font-weight:700;color:var(--text-dark);}
+.metric-target{font-size:10px;color:var(--green);}
+.alert-banner{background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;font-size:11px;display:flex;align-items:flex-start;gap:6px;margin-bottom:8px;}
+.alert-icon{color:#D97706;flex-shrink:0;}
+.pill-tag{display:inline-flex;align-items:center;gap:4px;background:#f3f4f6;border-radius:10px;padding:2px 8px;font-size:10px;color:var(--text-light);margin-top:8px;}
+.news-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid #f3f4f6;font-size:11px;}
+.news-img{width:36px;height:36px;background:#e5e7eb;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;}
+.news-img-apple{background:#111;color:white;border-radius:50%;}
+.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:500;margin-bottom:3px;}
+.badge-orange{background:#FEF3C7;color:#D97706;}
+.badge-green{background:#D1FAE5;color:#065F46;}
+.badge-blue{background:#DBEAFE;color:#1D4ED8;}
+.badge-red{background:#FEE2E2;color:#991B1B;}
+.mini-avatar{width:18px;height:18px;border-radius:50%;background:var(--blue);color:white;font-size:8px;display:flex;align-items:center;justify-content:center;border:1px solid white;}
+.priority-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-top:1px solid #f3f4f6;}
+.priority-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.priority-avatar{width:26px;height:26px;border-radius:50%;background:var(--blue);color:white;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.priority-info{flex:1;font-size:11px;}
+.priority-name{font-weight:600;color:var(--text-dark);}
+.priority-note{color:var(--text-light);line-height:1.3;margin-top:1px;}
+.panel-section-header{padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.panel-section-header h3{font-size:13px;font-weight:700;color:var(--text-dark);}
+.panel-section-header p{font-size:11px;color:var(--text-light);margin-top:2px;}
+.panel-subtabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.panel-subtab{flex:1;padding:6px 2px;font-size:10px;text-align:center;cursor:pointer;color:var(--text-light);border-bottom:2px solid transparent;}
+.panel-subtab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.msg-card{border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;}
+.msg-top{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.msg-avatar{width:28px;height:28px;border-radius:50%;background:var(--navy);color:white;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.msg-name{font-size:12px;font-weight:600;color:var(--text-dark);flex:1;}
+.msg-time{font-size:10px;color:var(--text-light);}
+.msg-subject{font-size:12px;font-weight:500;color:var(--text-dark);margin-bottom:3px;}
+.msg-preview{font-size:11px;color:var(--text-light);line-height:1.4;margin-bottom:6px;}
+.msg-actions{display:flex;gap:4px;}
+.msg-btn{padding:4px 8px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:white;color:var(--text-mid);}
+.msg-btn:hover{background:#f9fafb;}
+.msg-btn-blue{border-color:var(--blue);color:var(--blue);}
+.engine-card{border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;}
+.engine-label{display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600;margin-bottom:5px;}
+.eng-orange{background:#FEF3C7;color:#B45309;}
+.eng-green{background:#D1FAE5;color:#065F46;}
+.eng-blue{background:#DBEAFE;color:#1D4ED8;}
+.engine-text{font-size:11px;color:var(--text-mid);line-height:1.4;margin-bottom:6px;}
+.screen{display:none;flex:1;overflow:hidden;width:100%;min-width:0;}
+.screen.active{display:flex;}
+.sent-confirm{background:#D1FAE5;border:1px solid #6EE7B7;border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.sent-check{color:var(--green);font-size:18px;}
+.sent-info .t{font-weight:600;color:var(--text-dark);font-size:12px;}
+.sent-info .d{color:var(--text-mid);font-size:11px;}
+.connection-card{background:white;border:1px solid var(--border);border-radius:8px;padding:14px;}
+.conn-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.conn-avatar{width:38px;height:38px;border-radius:50%;background:var(--blue);color:white;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:600;flex-shrink:0;}
+.conn-name{font-size:15px;font-weight:700;color:var(--text-dark);}
+.conn-time{font-size:11px;color:var(--text-light);}
+.conn-stats{display:flex;gap:12px;font-size:12px;color:var(--text-mid);margin-bottom:10px;}
+.conn-divider{height:1px;background:var(--border);margin:8px 0;}
+.conn-recap{font-size:12px;color:var(--text-mid);line-height:1.5;margin-bottom:10px;}
+.conn-priorities .lbl{font-weight:600;color:var(--text-dark);font-size:12px;margin-bottom:5px;}
+.conn-priorities li{font-size:11px;color:var(--text-mid);margin-left:14px;margin-bottom:3px;line-height:1.4;}
+.conn-btns{display:flex;gap:6px;margin-top:10px;}
+.conn-nav{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+.conn-arrow{width:28px;height:28px;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-mid);background:white;font-size:14px;}
+.cal-layout{display:flex;flex:1;overflow:hidden;}
+.cal-sidebar{width:180px;padding:12px;border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;background:white;}
+.cal-main{flex:1;overflow:auto;}
+.mini-month-header{font-size:12px;font-weight:600;color:var(--text-dark);margin-bottom:6px;text-align:center;}
+.mini-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
+.mmc{text-align:center;font-size:10px;padding:3px;cursor:pointer;border-radius:50%;color:var(--text-mid);}
+.mmc.hdr{color:var(--text-light);cursor:default;}
+.mmc.today{background:var(--blue);color:white;}
+.cal-check-section .ttl{font-weight:600;color:var(--text-dark);font-size:12px;margin-bottom:6px;}
+.cal-check-item{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px;color:var(--text-mid);}
+.cal-check-item input{accent-color:var(--blue);}
+.week-header-row{display:flex;border-bottom:1px solid var(--border);background:white;position:sticky;top:0;z-index:1;}
+.week-time-col{width:60px;flex-shrink:0;}
+.week-day-col{flex:1;text-align:center;padding:8px 4px;font-size:12px;border-left:1px solid var(--border);}
+.week-day-col .dn{color:var(--text-light);font-size:10px;}
+.week-day-col .dd{font-size:18px;font-weight:300;color:var(--text-dark);}
+.week-day-col.today-col .dd{background:var(--blue);color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:0 auto;}
+.week-row{display:flex;height:50px;border-bottom:1px solid #f3f4f6;}
+.week-time-lbl{width:60px;flex-shrink:0;padding:4px 8px;font-size:10px;color:var(--text-light);text-align:right;}
+.week-cell{flex:1;border-left:1px solid var(--border);position:relative;}
+.cal-event{position:absolute;left:2px;right:2px;border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500;cursor:pointer;overflow:hidden;}
+.ev-blue{background:#DBEAFE;color:#1D4ED8;border-left:3px solid var(--blue);}
+.ev-navy{background:#E0E7FF;color:#3730A3;border-left:3px solid #6366F1;}
+.ev-green{background:#D1FAE5;color:#065F46;border-left:3px solid var(--green);}
+.client-header{background:white;border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.client-avatar-lg{width:48px;height:48px;border-radius:50%;background:var(--blue);color:white;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.client-name{font-size:20px;font-weight:700;color:var(--text-dark);}
+.client-meta{font-size:12px;color:var(--text-light);margin-top:2px;}
+.client-qa{display:flex;gap:8px;margin-left:auto;}
+.client-tabs{display:flex;border-bottom:1px solid var(--border);background:white;padding:0 20px;flex-shrink:0;}
+.client-tab{padding:10px 14px;font-size:12px;cursor:pointer;color:var(--text-light);border-bottom:2px solid transparent;white-space:nowrap;}
+.client-tab:hover{color:var(--text-dark);}
+.client-tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500;}
+.client-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 20px;}
+.todo-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #f3f4f6;font-size:12px;}
+.todo-border{width:3px;border-radius:2px;align-self:stretch;min-height:24px;flex-shrink:0;}
+.todo-info{flex:1;}
+.todo-name{font-weight:500;color:var(--text-dark);}
+.timeline-item{display:flex;gap:10px;padding:6px 0;font-size:12px;}
+.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:3px;}
+.timeline-date{color:var(--text-light);width:50px;font-size:11px;}
+.timeline-text{color:var(--text-mid);}
+.agenda-item{border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden;}
+.agenda-hdr{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:white;}
+.agenda-hdr:hover{background:#f9fafb;}
+.agenda-num{width:22px;height:22px;border-radius:50%;background:var(--blue);color:white;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:600;}
+.agenda-title{flex:1;font-size:13px;font-weight:500;color:var(--text-dark);}
+.agenda-time-lbl{font-size:11px;color:var(--text-light);}
+.agenda-chevron{font-size:10px;color:var(--text-light);}
+.agenda-body{padding:10px 12px;background:#f9fafb;font-size:12px;color:var(--text-mid);border-top:1px solid var(--border);display:none;line-height:1.5;}
+.agenda-body.open{display:block;}
+.prep-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.prep-stat{background:#f9fafb;border-radius:6px;padding:8px;text-align:center;}
+.prep-stat-val{font-size:13px;font-weight:600;color:var(--text-dark);}
+.prep-stat-lbl{font-size:10px;color:var(--text-light);}
+.talking-point{display:flex;gap:6px;font-size:12px;color:var(--text-mid);margin-bottom:5px;align-items:flex-start;}
+.talking-point::before{content:"•";color:var(--blue);flex-shrink:0;}
+.live-strip{background:var(--navy);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#22C55E;flex-shrink:0;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.live-name{font-size:13px;font-weight:700;color:white;}
+.live-since{font-size:11px;color:rgba(255,255,255,0.6);}
+.live-link{color:rgba(255,255,255,0.75);text-decoration:underline;cursor:pointer;}
+.live-controls{display:flex;align-items:center;gap:6px;margin:0 auto;}
+.live-pill{background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.9);border:none;border-radius:12px;padding:4px 10px;font-size:11px;cursor:pointer;}
+.live-pill:hover{background:rgba(255,255,255,0.25);}
+.live-verified{background:#D1FAE5;color:#065F46;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:500;}
+.live-timer{font-size:13px;font-weight:600;color:white;margin-left:8px;font-variant-numeric:tabular-nums;}
+.transcript-section{border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:10px;}
+.transcript-hdr{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text-dark);margin-bottom:5px;}
+.rec-dot{width:7px;height:7px;background:#EF4444;border-radius:50%;animation:pulse 1.5s infinite;}
+.transcript-text{font-size:11px;color:var(--text-mid);font-style:italic;line-height:1.5;}
+.slot-row{display:flex;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px;cursor:pointer;font-size:11px;color:var(--text-mid);}
+.slot-row:hover{border-color:var(--blue);background:#EBF5FF;}
+.slot-row.selected{border-color:var(--blue);background:#EBF5FF;color:var(--blue);font-weight:500;}
+.slot-radio{width:14px;height:14px;border:2px solid var(--border);border-radius:50%;flex-shrink:0;}
+.slot-row.selected .slot-radio{border-color:var(--blue);background:var(--blue);}
+.sched-card{background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px;margin-bottom:8px;}
+.sched-title{font-size:12px;font-weight:600;color:var(--text-dark);margin-bottom:6px;}
+.sched-card p{font-size:11px;color:var(--text-mid);margin-bottom:8px;}
+.confirmed-card{background:#D1FAE5;border:1px solid #6EE7B7;border-radius:8px;padding:12px;margin-bottom:8px;}
+.confirmed-title{font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px;}
+.confirmed-card p{font-size:11px;color:var(--text-mid);line-height:1.5;}
+.confirmed-date{font-weight:700;color:var(--text-dark);font-size:12px;margin-top:4px;}
+.chat-input-wrap{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;}
+.chat-input-inner{position:relative;}
+.chat-input{width:100%;border:1px solid var(--border);border-radius:18px;padding:7px 32px 7px 12px;font-size:12px;color:var(--text-mid);background:#f9fafb;outline:none;font-family:inherit;}
+.chat-input:focus{border-color:var(--blue);background:white;}
+.chat-mic{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-light);cursor:pointer;font-size:13px;}
+.reply-hdr{padding:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.reply-hdr h3{font-size:13px;font-weight:700;color:var(--text-dark);}
+.reply-close{background:none;border:none;cursor:pointer;color:var(--text-light);font-size:18px;}
+.reply-close:hover{color:var(--text-dark);}
+.msg-received{background:white;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+.msg-received .mhd{font-size:12px;font-weight:600;color:var(--text-dark);margin-bottom:6px;}
+.msg-received p{font-size:12px;color:var(--text-mid);line-height:1.5;}
+.ai-draft{background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px;}
+.ai-draft-lbl{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#92400E;margin-bottom:8px;}
+.draft-field-lbl{font-size:11px;color:var(--text-light);margin-bottom:4px;}
+.draft-textarea{width:100%;min-height:120px;border:1px solid #FDE68A;border-radius:6px;padding:8px;font-size:11px;color:var(--text-mid);background:white;resize:vertical;font-family:inherit;line-height:1.5;}
+.draft-actions{display:flex;gap:6px;margin-top:8px;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="chrome-window">
+<!-- Chrome -->
+<div class="chrome-titlebar">
+<div class="chrome-tab">
+<div class="chrome-favicon"><span>EJ</span></div>
+<span>Advisor Home</span>
+<span style="margin-left:4px;color:#666;font-size:10px;cursor:pointer">✕</span>
+</div>
+<button style="background:none;border:none;font-size:16px;color:#666;cursor:pointer;padding:0 8px">+</button>
+</div>
+<div class="chrome-urlbar">
+<button class="nav-btn">←</button>
+<button class="nav-btn">→</button>
+<button class="nav-btn">↺</button>
+<div class="address-bar">
+<span style="font-size:11px;color:#666">🔒</span>
+<span>https://fa.edwardjones.com</span>
+</div>
+<span style="color:#666;font-size:16px;cursor:pointer">☆</span>
+</div>
+<!-- App -->
+<div class="app-body">
+<!-- Sidebar -->
+<div class="sidebar">
+<div class="sidebar-logo"><span>EJ</span></div>
+<div class="nav-item active" id="nav-home" onclick="nav('dashboard-default')">
+<svg viewbox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+<span>Home</span>
+</div>
+<div class="nav-item" id="nav-calendar" onclick="nav('calendar-full')">
+<svg viewbox="0 0 24 24"><rect height="18" rx="2" width="18" x="3" y="4"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+<span>Calendar</span>
+</div>
+<div class="nav-item" id="nav-tasks">
+<svg viewbox="0 0 24 24"><line x1="8" x2="21" y1="6" y2="6"></line><line x1="8" x2="21" y1="12" y2="12"></line><line x1="8" x2="21" y1="18" y2="18"></line><line x1="3" x2="3.01" y1="6" y2="6"></line><line x1="3" x2="3.01" y1="12" y2="12"></line><line x1="3" x2="3.01" y1="18" y2="18"></line></svg>
+<span>Tasks</span>
+</div>
+<div class="nav-item" id="nav-clients" onclick="nav('client-barbara')">
+<svg viewbox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+<span>Clients</span>
+</div>
+<div class="nav-item" id="nav-practice">
+<svg viewbox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+<span>Practice</span>
+</div>
+<div class="nav-item" id="nav-learning">
+<svg viewbox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+<span>Learning</span>
+</div>
+<div class="nav-spacer"></div>
+<div class="nav-item">
+<svg viewbox="0 0 24 24"><rect height="7" width="7" x="3" y="3"></rect><rect height="7" width="7" x="14" y="3"></rect><rect height="7" width="7" x="14" y="14"></rect><rect height="7" width="7" x="3" y="14"></rect></svg>
+<span>Widgets</span>
+</div>
+<div class="nav-item">
+<svg viewbox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+<span>Settings</span>
+</div>
+<div class="demo-nav">
+<div class="demo-label">DEMO</div>
+<div class="demo-link" onclick="nav('dashboard-default')">Dashboard</div>
+<div class="demo-link" onclick="nav('dashboard-today-connections')">Connections</div>
+<div class="demo-link" onclick="nav('dashboard-reply-emma')">Reply</div>
+<div class="demo-link" onclick="nav('dashboard-sent-emma')">Sent</div>
+<div class="demo-link" onclick="nav('calendar-full')">Calendar</div>
+<div class="demo-link" onclick="nav('client-barbara')">Client</div>
+<div class="demo-link" onclick="nav('meeting-prep')">Prep</div>
+<div class="demo-link" onclick="nav('scheduling')">Live Call</div>
+<div class="demo-link" onclick="nav('scheduling-confirmed')">Confirmed</div>
+</div>
+</div>
+<!-- Screens container -->
+<div id="screens" style="flex:1;display:flex;overflow:hidden;position:relative;min-width:0;">
+<!-- ===== SCREEN: dashboard-default ===== -->
+<div class="screen active" id="s-dashboard-default" style="flex-direction:row;">
+<div class="main-content">
+<div class="page-header" style="background:var(--light-bg);">
+<h1>My Dashboard</h1>
+<span style="font-size:12px;color:var(--text-light);margin-left:auto">Last updated: Today, 8:30AM</span>
+<button class="btn" style="margin-left:8px">Edit widgets</button>
+</div>
+<div class="widget-grid" id="dash-widget-grid">
+<!-- TODAY WIDGET - spans 2 rows -->
+<div class="card" style="grid-row:span 2">
+<div class="card-header">Today <span style="font-size:11px;font-weight:400;color:var(--text-light)">Monday Oct. 2, 2025</span></div>
+<div class="chip-row">
+<span class="chip chip-blue">5 appointments →</span>
+<span class="chip chip-orange">4 alerts →</span>
+<span class="chip chip-gray">3 tasks →</span>
+</div>
+<div class="mini-cal">
+<div class="mini-cal-row">
+<div class="mini-cal-day header">Su</div><div class="mini-cal-day header">Mo</div><div class="mini-cal-day header">Tu</div><div class="mini-cal-day header">We</div><div class="mini-cal-day header">Th</div><div class="mini-cal-day header">Fr</div><div class="mini-cal-day header">Sa</div>
+</div>
+<div class="mini-cal-row">
+<div class="mini-cal-day">1</div><div class="mini-cal-day today">2</div><div class="mini-cal-day">3</div><div class="mini-cal-day">4</div><div class="mini-cal-day">5</div><div class="mini-cal-day">6</div><div class="mini-cal-day">7</div>
+</div>
+</div>
+<div class="tab-row">
+<button class="tab-pill active">Day at a Glance</button>
+<button class="tab-pill" onclick="nav('dashboard-today-connections')">Today's Connections</button>
+</div>
+<div id="today-appointments">
+<div class="appt-item">
+<div class="appt-border" style="background:#F59E0B"></div>
+<div class="appt-time">9:00 AM</div>
+<div><div class="appt-name">Portfolio review</div><div class="appt-client">Barbara Johnson</div></div>
+</div>
+<div class="appt-item">
+<div class="appt-border" style="background:var(--blue)"></div>
+<div class="appt-time">10:00 AM</div>
+<div><div class="appt-name">Beneficiaries follow-up</div><div class="appt-client">Dominic Torres</div></div>
+</div>
+<div class="optimize-box">
+<div class="optimize-title">Optimize your 11:00 AM <button class="btn btn-sm" style="font-size:10px;padding:2px 6px">Add Block</button></div>
+<p>Reach out to 3 prospects to stay on track for your new client goal with a 30 min. block</p>
+</div>
+<div class="appt-item">
+<div class="appt-border" style="background:#e5e7eb"></div>
+<div class="appt-time">11:30 AM</div>
+<div><div class="appt-name">Financial strategy call</div><div class="appt-client">Sarah Lee</div></div>
+</div>
+<div class="appt-item">
+<div class="appt-border" style="background:#e5e7eb"></div>
+<div class="appt-time">1:00 PM</div>
+<div><div class="appt-name">Retirement planning</div><div class="appt-client">James Smith</div></div>
+</div>
+<div class="appt-item">
+<div class="appt-border" style="background:#e5e7eb"></div>
+<div class="appt-time">2:30 PM</div>
+<div><div class="appt-name">Discuss investments</div><div class="appt-client">Emily Wang</div></div>
+</div>
+</div><!-- end today-appointments -->
+<!-- placeholder removed --><div id="dash-actionable-placeholder" style="display:none">
+  <div style="background:#00305E;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;">
+    <span style="color:white;font-weight:600;font-size:13px;">Members — Actionable List</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="closeDashActionableList()" style="background:white;color:#00305E;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">✕ Close</button>
+      <button style="background:white;color:#00305E;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">Show KPI Bar</button>
+    </div>
+  </div>
+  <div style="padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;">
+    <div style="display:flex;align-items:center;gap:16px;font-size:11px;">
+      <span style="font-weight:500;color:#374151;">10 items</span>
+      <span style="color:#9ca3af;">Selected (0):</span>
+      <span style="color:#9ca3af;display:flex;align-items:center;gap:3px;"><svg viewBox="0 0 24 24" width="10" height="10" fill="#F5A800"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Change Assignee</span>
+      <span style="color:#9ca3af;display:flex;align-items:center;gap:3px;"><svg viewBox="0 0 24 24" width="10" height="10" fill="#F5A800"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Create and Assign Action Plan</span>
+      <span style="color:#9ca3af;display:flex;align-items:center;gap:3px;"><svg viewBox="0 0 24 24" width="10" height="10" fill="#F5A800"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Add to Campaign</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;font-size:11px;color:#6b7280;">
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#6b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Search this list...
+    </div>
+  </div>
+  <div style="overflow:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead>
+        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;position:sticky;top:0;">
+          <th style="padding:6px 10px;"><input type="checkbox"></th>
+          <th style="padding:6px 4px;color:#6b7280;font-weight:500;text-align:left;">#</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Reference</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;">Preview</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Status</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assignee</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Record</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Email</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Title</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Birthdate</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Wallet %</th>
+          <th style="padding:6px 10px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assets</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">1</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Displaytech</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">2</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Charlie Ellis</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px;color:#374151">hparrish...</td><td style="padding:6px 10px;color:#374151">Banking Client</td><td style="padding:6px 10px;color:#374151">May 21, 1992</td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px;color:#374151">$305,924</td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">3</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Employnet</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">4</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Duncan Macint...</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px;color:#374151">eziegler.1...</td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">Feb 7, 1969</td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">5</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Gabe Hoskins</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px;color:#374151">kthorne.1...</td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">Feb 16, 1974</td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">6</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Chip Colli</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px;color:#374151">hquinlan...</td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">Dec 24, 1973</td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">7</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Deanna Collins</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px;color:#374151">xblue.19...</td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">Aug 19, 1982</td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">8</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">CCAnonymous</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">9</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Frank Household</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">100%</td><td style="padding:6px 10px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:6px 10px"><input type="checkbox"></td><td style="padding:6px 4px;color:#6b7280">10</td><td style="padding:6px 10px;color:#0072CE;font-weight:500;cursor:pointer">Deloitte LLP</td><td style="padding:6px 10px;text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:6px 10px"><span style="background:#3b82f6;color:white;padding:1px 8px;border-radius:12px;font-size:10px;font-weight:500">New</span></td><td style="padding:6px 10px;color:#374151">Paige Everett</td><td style="padding:6px 10px;color:#374151">Active</td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px"></td><td style="padding:6px 10px;color:#374151">0%</td><td style="padding:6px 10px"></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<!-- Key Practice Metrics wrapper (toggled by openActionableList) -->
+<div id="dash-metrics-col" style="display:contents">
+<!-- Key Practice Metrics -->
+<div class="card" id="dash-card-kpm">
+<div class="card-header">Key Practice Metrics <a href="#">→</a></div>
+<div class="metric-boxes">
+<div class="metric-box"><div class="metric-label">Gross commissions</div><div class="metric-value">$262K</div><div class="metric-target">↑ Target: $280K</div></div>
+<div class="metric-box"><div class="metric-label">Client health</div><div class="metric-value">86%</div><div class="metric-target">↑ Target: 90%</div></div>
+<div class="metric-box"><div class="metric-label">CST Capacity</div><div class="metric-value">86%</div><div class="metric-target">↑ Target: 90%</div></div>
+</div>
+<div class="alert-banner">
+<span class="alert-icon">⚠</span>
+<span style="flex:1;color:var(--text-mid)">CST capacity is trending down. Redistribute client load to prevent burnout</span>
+<button class="btn btn-sm" style="flex-shrink:0">Review Forecast</button>
+</div>
+<div><span class="pill-tag">🕐 1hr · In the Business</span></div>
+</div>
+<!-- My Priority List -->
+<div class="card">
+<div class="card-header">My priority list <a href="#">→</a></div>
+<div class="tab-row">
+<button class="tab-pill active">Clients</button>
+<button class="tab-pill">Prospects</button>
+</div>
+<div id="dash-priority-list">
+<div class="priority-item">
+<div class="priority-dot" style="background:var(--green)"></div>
+<div class="priority-avatar">BJ</div>
+<div class="priority-info"><div class="priority-name">Barbara Johnson</div><div class="priority-note">Annual review in 2 days, meeting prep ready</div></div>
+<span class="badge badge-green" style="flex-shrink:0;font-size:9px">Prep ready</span>
+</div>
+<div class="priority-item">
+<div class="priority-dot" style="background:#F59E0B"></div>
+<div class="priority-avatar" style="background:#6366F1">MC</div>
+<div class="priority-info"><div class="priority-name">Mark Cronin</div><div class="priority-note">Roth conversion follow-up required</div></div>
+</div>
+<div class="priority-item">
+<div class="priority-dot" style="background:var(--blue)"></div>
+<div class="priority-avatar" style="background:#0891B2">SL</div>
+<div class="priority-info"><div class="priority-name">Sarah Lee</div><div class="priority-note">CD maturing in 2 weeks</div></div>
+</div>
+<div class="priority-item">
+<div class="priority-dot" style="background:#EC4899"></div>
+<div class="priority-avatar" style="background:#9333EA">DT</div>
+<div class="priority-info"><div class="priority-name">Dominic Torres</div><div class="priority-note">Needs beneficiary updates after meeting</div></div>
+</div>
+<div class="priority-item">
+<div class="priority-dot" style="background:var(--text-light)"></div>
+<div class="priority-avatar" style="background:#047857">JM</div>
+<div class="priority-info"><div class="priority-name">John Martinez</div><div class="priority-note">Check-in on recent market changes</div></div>
+</div>
+<a href="#" style="color:var(--blue);font-size:11px;display:block;margin-top:6px">View all →</a>
+</div><!-- end dash-priority-list -->
+</div>
+<!-- Market Insights -->
+<div class="card" id="dash-card-mi">
+<div class="card-header">Market Insights <a href="#">→</a></div>
+<div class="news-item">
+<div class="news-img">📊</div>
+<div><div><span class="badge badge-orange">1 Client Impacted</span></div><div style="font-size:11px;color:var(--text-mid);line-height:1.4">Lululemon dropped -18.6% on weak warnings and lowered guidance</div></div>
+</div>
+<div class="news-item">
+<div class="news-img">💻</div>
+<div><div><span class="badge badge-green">1 prospect impacted</span></div><div style="font-size:11px;color:var(--text-mid);line-height:1.4">Tech stocks surge as investors react to new product releases</div></div>
+</div>
+<div class="news-item">
+<div class="news-img news-img-apple">A</div>
+<div style="flex:1">
+<div><span class="badge badge-orange">2 Clients Impacted</span></div>
+<div style="font-size:11px;color:var(--text-mid);line-height:1.4;margin-bottom:4px">Apple (AAPL) Reports Q3 Earnings Revenue Up 8% Year-Over-Year</div>
+<div style="display:flex;align-items:center;gap:6px">
+<div style="display:flex"><div class="mini-avatar">BJ</div><div class="mini-avatar" style="background:#6366F1;margin-left:-5px">MC</div></div>
+<button class="btn btn-sm btn-outline-blue">Prep talking points</button>
+</div>
+</div>
+</div>
+<div class="news-item">
+<div class="news-img">🏦</div>
+<div style="font-size:11px;color:var(--text-mid);line-height:1.4">Federal Reserve Signals Potential Rate Cut in Q4 2025</div>
+</div>
+<a href="#" style="color:var(--blue);font-size:11px;display:block;margin-top:4px">View all →</a>
+<div><span class="pill-tag">🕐 1hr · Current News</span></div>
+</div>
+</div><!-- end dash-metrics-col -->
+<!-- RMDs -->
+<div class="card">
+<div class="card-header">RMDs before year-end <a href="#">→</a></div>
+<div style="font-size:15px;font-weight:700;color:var(--text-dark);margin-bottom:6px">32 clients require withdrawals</div>
+<div style="font-size:12px;color:var(--text-light);margin-bottom:10px">Review client RMD requirements and schedule distributions</div>
+<a href="#" style="color:var(--blue);font-size:12px">View Clients with Pending RMDs</a>
+</div>
+</div>
+<!-- Actionable List full-page view (hidden by default) -->
+<div id="dash-actionable-list" style="display:none;flex-direction:column;flex:1;overflow:hidden;background:white;border-radius:8px;border:1px solid #e5e7eb;margin:0 16px 16px 16px;">
+  <div style="background:#00305E;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;flex-shrink:0;">
+    <span style="color:white;font-weight:600;font-size:13px;">Members — Actionable List</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="closeDashActionableList()" style="background:white;color:#00305E;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">✕ Close</button>
+      <button style="background:white;color:#00305E;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">Show KPI Bar</button>
+    </div>
+  </div>
+  <div style="padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:16px;font-size:11px;">
+      <span style="font-weight:500;color:#374151;">10 items</span>
+      <span style="color:#9ca3af;">Selected (0):</span>
+      <span style="color:#9ca3af;cursor:pointer;">⚡ Change Assignee</span>
+      <span style="color:#9ca3af;cursor:pointer;">⚡ Create and Assign Action Plan</span>
+      <span style="color:#9ca3af;cursor:pointer;">⚡ Add to Campaign</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;font-size:11px;color:#6b7280;">
+      🔍 Search this list...
+    </div>
+  </div>
+  <div style="overflow:auto;flex:1;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+          <th style="padding:8px 10px;"><input type="checkbox"></th>
+          <th style="padding:8px 6px;color:#6b7280;font-weight:500;text-align:left;">#</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Reference</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;">Preview</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Status</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assignee</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Record</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Email</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Title</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Birthdate</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Wallet %</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assets</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">1</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Displaytech</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">2</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Charlie Ellis</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">hparrish...</td><td style="padding:8px 12px;color:#374151">Banking Client</td><td style="padding:8px 12px;color:#374151">May 21, 1992</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px;color:#374151">$305,924</td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">3</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Employnet</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">4</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Duncan Macint...</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">eziegler.1...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Feb 7, 1969</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">5</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Gabe Hoskins</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">kthorne.1...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Feb 16, 1974</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">6</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Chip Colli</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">hquinlan...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Dec 24, 1973</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">7</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Deanna Collins</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">xblue.19...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Aug 19, 1982</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">8</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">CCAnonymous</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">9</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Frank Household</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">100%</td><td style="padding:8px 12px"></td></tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">10</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Deloitte LLP</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+<!-- Right panel: Alerts/Messages + Guidance Center -->
+
+</div>
+<!-- ===== SCREEN: dashboard-reply-emma ===== -->
+<div class="screen" id="s-dashboard-reply-emma" style="flex-direction:row;">
+<div style="flex:1;overflow:hidden;position:relative;opacity:0.4;pointer-events:none;">
+<div class="main-content" style="height:100%">
+<div class="page-header" style="background:var(--light-bg)"><h1>My Dashboard</h1><span style="font-size:12px;color:var(--text-light);margin-left:auto">Last updated: Today, 8:30AM</span></div>
+<div class="widget-grid">
+<div class="card" style="grid-row:span 2"><div class="card-header">Today</div><div style="color:var(--text-light);font-size:12px;padding:8px 0">Appointment schedule dimmed...</div></div>
+<div class="card"><div class="card-header">Key Practice Metrics</div><div class="metric-boxes"><div class="metric-box"><div class="metric-label">Gross commissions</div><div class="metric-value">$262K</div></div><div class="metric-box"><div class="metric-label">Client health</div><div class="metric-value">86%</div></div><div class="metric-box"><div class="metric-label">CST Capacity</div><div class="metric-value">86%</div></div></div></div>
+<div class="card"><div class="card-header">My priority list</div><div style="color:var(--text-light);font-size:12px">Priority clients...</div></div>
+<div class="card"><div class="card-header">Market Insights</div><div style="color:var(--text-light);font-size:12px">Market news...</div></div>
+<div class="card"><div class="card-header">RMDs before year-end</div><div style="font-size:15px;font-weight:700;color:var(--text-dark)">32 clients require withdrawals</div></div>
+</div>
+</div>
+</div>
+<!-- Reply Panel -->
+
+</div>
+<!-- ===== SCREEN: dashboard-sent-emma ===== -->
+<div class="screen" id="s-dashboard-sent-emma" style="flex-direction:row;">
+<div class="main-content">
+<div class="page-header" style="background:var(--light-bg)"><h1>My Dashboard</h1><span style="font-size:12px;color:var(--text-light);margin-left:auto">Last updated: Today, 9:02AM</span><button class="btn" style="margin-left:8px">Edit widgets</button></div>
+<div style="padding:16px 20px 0">
+<div class="sent-confirm">
+<span class="sent-check">✓</span>
+<div class="sent-info"><div class="t">Message sent · 9:02 AM</div><div class="d">Emma Johnson — Payment alert · Reply sent successfully</div></div>
+</div>
+</div>
+<div class="widget-grid">
+<div class="card" style="grid-row:span 2"><div class="card-header">Today <span style="font-size:11px;font-weight:400;color:var(--text-light)">Monday Oct. 2, 2025</span></div>
+<div class="appt-item"><div class="appt-border" style="background:#F59E0B"></div><div class="appt-time">9:00 AM</div><div><div class="appt-name">Portfolio review</div><div class="appt-client">Barbara Johnson</div></div></div>
+<div class="appt-item"><div class="appt-border" style="background:var(--blue)"></div><div class="appt-time">10:00 AM</div><div><div class="appt-name">Beneficiaries follow-up</div><div class="appt-client">Dominic Torres</div></div></div>
+</div>
+<div class="card"><div class="card-header">Key Practice Metrics <a href="#">→</a></div><div class="metric-boxes"><div class="metric-box"><div class="metric-label">Gross commissions</div><div class="metric-value">$262K</div><div class="metric-target">↑ Target: $280K</div></div><div class="metric-box"><div class="metric-label">Client health</div><div class="metric-value">86%</div><div class="metric-target">↑ Target: 90%</div></div><div class="metric-box"><div class="metric-label">CST Capacity</div><div class="metric-value">86%</div><div class="metric-target">↑ Target: 90%</div></div></div></div>
+<div class="card"><div class="card-header">My priority list <a href="#">→</a></div><div style="color:var(--text-light);font-size:12px">Priority clients listed here...</div></div>
+<div class="card"><div class="card-header">Market Insights <a href="#">→</a></div><div style="color:var(--text-light);font-size:12px">Market news...</div></div>
+<div class="card"><div class="card-header">RMDs before year-end</div><div style="font-size:15px;font-weight:700;color:var(--text-dark)">32 clients require withdrawals</div></div>
+</div>
+</div>
+
+</div>
+<!-- ===== SCREEN: dashboard-today-connections ===== -->
+<div class="screen" id="s-dashboard-today-connections" style="flex-direction:row;">
+<div class="main-content">
+<div class="page-header" style="background:var(--light-bg)"><h1>My Dashboard</h1><span style="font-size:12px;color:var(--text-light);margin-left:auto">Last updated: Today, 8:30AM</span></div>
+<div class="widget-grid">
+<div class="card" style="grid-row:span 2">
+<div class="card-header">Today <span style="font-size:11px;font-weight:400;color:var(--text-light)">Monday Oct. 2, 2025</span></div>
+<div class="chip-row"><span class="chip chip-blue">5 appointments →</span><span class="chip chip-orange">4 alerts →</span></div>
+<div class="mini-cal"><div class="mini-cal-row"><div class="mini-cal-day header">Su</div><div class="mini-cal-day header">Mo</div><div class="mini-cal-day header">Tu</div><div class="mini-cal-day header">We</div><div class="mini-cal-day header">Th</div><div class="mini-cal-day header">Fr</div><div class="mini-cal-day header">Sa</div></div><div class="mini-cal-row"><div class="mini-cal-day">1</div><div class="mini-cal-day today">2</div><div class="mini-cal-day">3</div><div class="mini-cal-day">4</div><div class="mini-cal-day">5</div><div class="mini-cal-day">6</div><div class="mini-cal-day">7</div></div></div>
+<div class="tab-row">
+<button class="tab-pill" onclick="nav('dashboard-default')">Day at a Glance</button>
+<button class="tab-pill active">Today's Connections</button>
+</div>
+<div class="connection-card">
+<div class="conn-top"><div class="conn-avatar">SJ</div><div><div class="conn-name">Scott Johnson</div><div class="conn-time">9:00 AM · In 2 hrs</div></div></div>
+<div class="conn-stats"><span>Net worth <strong>$560K</strong></span><span>Commissions <strong>$25K</strong></span></div>
+<div class="conn-divider"></div>
+<div class="conn-recap">Since the last meeting we rebalanced $25,000 from equity positions into intermediate-term bond funds to reduce volatility exposure</div>
+<div class="conn-priorities">
+<div class="lbl">Key Priorities</div>
+<ul>
+<li>Rising college tuition costs for daughter, Ellie</li>
+<li>Retirement timeline still flexible but aiming for age 62</li>
+<li>Concerned about near-term market volatility</li>
+</ul>
+</div>
+<div class="conn-btns"><button class="btn" style="flex:1;font-size:11px">Refresh your knowledge</button><button class="btn btn-primary" style="flex:1;font-size:11px">Review Agenda</button></div>
+<div class="conn-nav"><div class="conn-arrow">←</div><span style="font-size:11px;color:var(--text-light)">1 of 5</span><div class="conn-arrow">→</div></div>
+</div>
+</div>
+<div class="card"><div class="card-header">Key Practice Metrics <a href="#">→</a></div><div class="metric-boxes"><div class="metric-box"><div class="metric-label">Gross commissions</div><div class="metric-value">$262K</div><div class="metric-target">↑ Target: $280K</div></div><div class="metric-box"><div class="metric-label">Client health</div><div class="metric-value">86%</div><div class="metric-target">↑ Target: 90%</div></div><div class="metric-box"><div class="metric-label">CST Capacity</div><div class="metric-value">86%</div><div class="metric-target">↑ Target: 90%</div></div></div></div>
+<div class="card"><div class="card-header">My priority list <a href="#">→</a></div><div style="color:var(--text-light);font-size:12px">Priority clients...</div></div>
+<div class="card"><div class="card-header">Market Insights <a href="#">→</a></div><div style="color:var(--text-light);font-size:12px">Market news...</div></div>
+<div class="card"><div class="card-header">RMDs before year-end</div><div style="font-size:15px;font-weight:700;color:var(--text-dark);margin-bottom:6px">32 clients require withdrawals</div><a href="#" style="color:var(--blue);font-size:12px">View Clients with Pending RMDs</a></div>
+</div>
+</div>
+
+</div>
+<!-- ===== SCREEN: calendar-full ===== -->
+<div class="screen" id="s-calendar-full" style="flex-direction:column;">
+<div class="page-header" style="background:white">
+<h1>My Calendar</h1>
+<button class="btn btn-primary" style="margin-left:auto">+ New Event</button>
+</div>
+<div style="flex:1;display:flex;overflow:hidden;">
+<div class="cal-layout" style="flex:1;">
+<div class="cal-sidebar">
+<div style="margin-bottom:16px">
+<div class="mini-month-header">October 2025</div>
+<div class="mini-month-grid">
+<div class="mmc hdr">S</div><div class="mmc hdr">M</div><div class="mmc hdr">T</div><div class="mmc hdr">W</div><div class="mmc hdr">T</div><div class="mmc hdr">F</div><div class="mmc hdr">S</div>
+<div class="mmc"></div><div class="mmc"></div><div class="mmc">1</div><div class="mmc today">2</div><div class="mmc">3</div><div class="mmc">4</div><div class="mmc">5</div>
+<div class="mmc">6</div><div class="mmc">7</div><div class="mmc">8</div><div class="mmc">9</div><div class="mmc">10</div><div class="mmc">11</div><div class="mmc">12</div>
+<div class="mmc">13</div><div class="mmc">14</div><div class="mmc">15</div><div class="mmc">16</div><div class="mmc">17</div><div class="mmc">18</div><div class="mmc">19</div>
+<div class="mmc">20</div><div class="mmc">21</div><div class="mmc">22</div><div class="mmc">23</div><div class="mmc">24</div><div class="mmc">25</div><div class="mmc">26</div>
+<div class="mmc">27</div><div class="mmc">28</div><div class="mmc">29</div><div class="mmc">30</div><div class="mmc">31</div>
+</div>
+</div>
+<div class="cal-check-section">
+<div class="ttl">Enabled Calendars</div>
+<div class="cal-check-item"><input checked="" type="checkbox"/> Personal</div>
+<div class="cal-check-item"><input checked="" type="checkbox"/> Work</div>
+<div class="cal-check-item"><input checked="" type="checkbox"/> EJ Events</div>
+<div class="cal-check-item"><input type="checkbox"/> Shared</div>
+</div>
+</div>
+<div class="cal-main">
+<div class="week-header-row">
+<div class="week-time-col"></div>
+<div class="week-day-col today-col"><div class="dn">MON</div><div class="dd">2</div></div>
+<div class="week-day-col"><div class="dn">TUE</div><div class="dd">3</div></div>
+<div class="week-day-col"><div class="dn">WED</div><div class="dd">4</div></div>
+<div class="week-day-col"><div class="dn">THU</div><div class="dd">5</div></div>
+<div class="week-day-col"><div class="dn">FRI</div><div class="dd">6</div></div>
+</div>
+<div class="week-row"><div class="week-time-lbl">8 AM</div><div class="week-cell" style="background:#f0f7ff"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row" style="height:50px"><div class="week-time-lbl">9 AM</div><div class="week-cell" style="background:#f0f7ff;position:relative"><div class="cal-event ev-blue" style="top:2px;height:44px">Portfolio Review<br/><span style="font-size:9px">Barbara Johnson</span></div></div><div class="week-cell"></div><div class="week-cell"><div class="cal-event ev-green" style="top:2px;height:44px">Morning standup</div></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row" style="height:50px"><div class="week-time-lbl">10 AM</div><div class="week-cell" style="background:#f0f7ff;position:relative"><div class="cal-event ev-blue" style="top:2px;height:44px">Beneficiaries<br/><span style="font-size:9px">Dominic Torres</span></div></div><div class="week-cell"><div class="cal-event ev-navy" style="top:2px;height:44px">Team meeting</div></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row"><div class="week-time-lbl">11 AM</div><div class="week-cell" style="background:#f0f7ff"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"><div class="cal-event ev-green" style="top:2px;height:44px">Lunch: EJ conf.</div></div><div class="week-cell"></div></div>
+<div class="week-row" style="height:50px"><div class="week-time-lbl">12 PM</div><div class="week-cell" style="background:#f0f7ff;position:relative"><div class="cal-event ev-navy" style="top:25px;height:22px;font-size:9px">Financial strategy call</div></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row" style="height:50px"><div class="week-time-lbl">1 PM</div><div class="week-cell" style="background:#f0f7ff;position:relative"><div class="cal-event ev-blue" style="top:2px;height:44px">Retirement planning<br/><span style="font-size:9px">James Smith</span></div></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row" style="height:50px"><div class="week-time-lbl">2 PM</div><div class="week-cell" style="background:#f0f7ff;position:relative"><div class="cal-event ev-navy" style="top:2px;height:44px">Discuss investments<br/><span style="font-size:9px">Emily Wang</span></div></div><div class="week-cell"><div class="cal-event ev-blue" style="top:2px;height:44px">Client call<br/><span style="font-size:9px">Mike Davis</span></div></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"><div class="cal-event ev-green" style="top:2px;height:44px">Weekly wrap-up</div></div></div>
+<div class="week-row"><div class="week-time-lbl">3 PM</div><div class="week-cell" style="background:#f0f7ff"></div><div class="week-cell"></div><div class="week-cell"><div class="cal-event ev-navy" style="top:2px;height:44px">Quarterly review</div></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row"><div class="week-time-lbl">4 PM</div><div class="week-cell" style="background:#f0f7ff"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"><div class="cal-event ev-blue" style="top:2px;height:44px">Investment committee</div></div><div class="week-cell"></div></div>
+<div class="week-row"><div class="week-time-lbl">5 PM</div><div class="week-cell" style="background:#f0f7ff"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div></div>
+<div class="week-row"><div class="week-time-lbl">6 PM</div><div class="week-cell" style="background:#f0f7ff"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div><div class="week-cell"></div></div>
+</div>
+</div>
+
+</div>
+</div>
+<!-- ===== SCREEN: client-barbara ===== -->
+<div class="screen" id="s-client-barbara" style="flex-direction:column;">
+<div class="client-header">
+<div class="client-avatar-lg">BJ</div>
+<div><div class="client-name">Barbara Johnson</div><div class="client-meta"><span class="badge badge-blue" style="margin-right:6px">Financial Planning Plus</span> Client since 2018</div></div>
+<div class="client-qa"><button class="btn btn-sm">Schedule meeting</button><button class="btn btn-sm">Send message</button><button class="btn btn-sm">Create task</button><button class="btn btn-sm">More</button></div>
+</div>
+<div class="client-tabs">
+<div class="client-tab active">Summary</div>
+<div class="client-tab">Portfolio</div>
+<div class="client-tab">Financial plan</div>
+<div class="client-tab">Engagement history</div>
+<div class="client-tab">Documents</div>
+<div class="client-tab">Profile details</div>
+</div>
+<div style="flex:1;display:flex;overflow:hidden;">
+<div style="flex:1;overflow-y:auto;background:var(--light-bg)">
+<div class="client-grid">
+<div>
+<div class="card">
+<div class="card-header">Upcoming to-dos</div>
+<div class="todo-item"><div class="todo-border" style="background:var(--yellow)"></div><div class="todo-info"><div class="todo-name">Portfolio Review — Annual</div><div style="margin-top:2px"><span class="badge badge-red">Due today</span></div></div><button class="btn btn-sm btn-primary" onclick="nav('meeting-prep')">Prepare for meeting</button></div>
+<div class="todo-item"><div class="todo-border" style="background:var(--blue)"></div><div class="todo-info"><div class="todo-name">Beneficiary designation update</div><div style="font-size:11px;color:var(--text-light);margin-top:2px">Due in 3 days</div></div></div>
+<div class="todo-item"><div class="todo-border" style="background:#e5e7eb"></div><div class="todo-info"><div class="todo-name">Review CD maturation</div><div style="font-size:11px;color:var(--text-light);margin-top:2px">Due in 2 weeks</div></div></div>
+</div>
+<div class="card">
+<div class="card-header">Last meeting recap <span style="font-size:11px;font-weight:400;color:var(--text-light)">May 15, 2025</span></div>
+<p style="font-size:12px;color:var(--text-mid);line-height:1.6">Discussed rebalancing strategy — moved $25K from equity to bonds. Reviewed estate planning. Set follow-up for beneficiary review.</p>
+</div>
+</div>
+<div>
+<div class="card">
+<div class="card-header">Key updates &amp; milestones</div>
+<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-date">Oct 2</div><div class="timeline-text">Annual review scheduled</div></div>
+<div class="timeline-item"><div class="timeline-dot" style="background:var(--green)"></div><div class="timeline-date">Sep 15</div><div class="timeline-text">Portfolio rebalanced</div></div>
+<div class="timeline-item"><div class="timeline-dot" style="background:var(--yellow)"></div><div class="timeline-date">Aug 1</div><div class="timeline-text">CD renewed $50K</div></div>
+<div class="timeline-item"><div class="timeline-dot" style="background:#EC4899"></div><div class="timeline-date">Jun 10</div><div class="timeline-text">Beneficiary change requested</div></div>
+</div>
+<div class="card">
+<div class="card-header">Account summary</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+<div class="metric-box"><div class="metric-label">Total AUM</div><div style="font-size:14px;font-weight:700;color:var(--text-dark)">$485,000</div></div>
+<div class="metric-box"><div class="metric-label">YTD return</div><div style="font-size:14px;font-weight:700;color:var(--green)">+7.2%</div></div>
+<div class="metric-box"><div class="metric-label">Risk profile</div><div style="font-size:13px;font-weight:600;color:var(--text-dark)">Moderate</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+<!-- ===== SCREEN: meeting-prep ===== -->
+<div class="screen" id="s-meeting-prep" style="flex-direction:column;">
+<div class="client-header">
+<div class="client-avatar-lg">BJ</div>
+<div><div class="client-name">Barbara Johnson</div><div class="client-meta"><span class="badge badge-blue" style="margin-right:6px">Financial Planning Plus</span> Client since 2018</div></div>
+</div>
+<div class="client-tabs">
+<div class="client-tab" onclick="nav('client-barbara')">Summary</div>
+<div class="client-tab">Portfolio</div>
+<div class="client-tab">Financial plan</div>
+<div class="client-tab active">Prepare for meeting</div>
+<div class="client-tab">Documents</div>
+</div>
+<div style="flex:1;display:flex;overflow:hidden;">
+<div style="flex:1;overflow-y:auto;background:var(--light-bg)">
+<div class="client-grid">
+<div>
+<div class="card">
+<div class="card-header">
+                    Meeting Agenda
+                    <svg style="width:15px;height:15px;stroke:var(--text-light);fill:none;stroke-width:1.8;cursor:pointer" viewbox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+</div>
+<div class="agenda-item">
+<div class="agenda-hdr" onclick="toggleAgenda(this)">
+<div class="agenda-num">1</div><div class="agenda-title">Portfolio performance review</div><div class="agenda-time-lbl">15 min</div><div class="agenda-chevron">▼</div>
+</div>
+<div class="agenda-body open">YTD return of +7.2% outperforms benchmark by 1.4%. Review asset allocation drift: equity is 5% above target. Discuss whether to rebalance now or after Q4.</div>
+</div>
+<div class="agenda-item">
+<div class="agenda-hdr" onclick="toggleAgenda(this)">
+<div class="agenda-num">2</div><div class="agenda-title">Retirement income planning</div><div class="agenda-time-lbl">20 min</div><div class="agenda-chevron">▶</div>
+</div>
+<div class="agenda-body">Barbara is targeting retirement at age 65. Review Social Security optimization and withdrawal sequencing from taxable vs. tax-deferred accounts.</div>
+</div>
+<div class="agenda-item">
+<div class="agenda-hdr" onclick="toggleAgenda(this)">
+<div class="agenda-num">3</div><div class="agenda-title">Tax optimization strategies</div><div class="agenda-time-lbl">15 min</div><div class="agenda-chevron">▶</div>
+</div>
+<div class="agenda-body">Roth conversion opportunity window closing before Q4. Barbara's income bracket this year is lower — ideal for a partial Roth conversion of $20–30K.</div>
+</div>
+<div class="agenda-item">
+<div class="agenda-hdr" onclick="toggleAgenda(this)">
+<div class="agenda-num">4</div><div class="agenda-title">Estate planning update</div><div class="agenda-time-lbl">10 min</div><div class="agenda-chevron">▶</div>
+</div>
+<div class="agenda-body">Beneficiary designation change from June is still pending. Confirm Barbara's wishes and submit updated form before meeting ends.</div>
+</div>
+<div style="margin-top:10px"><a href="#" style="color:var(--blue);font-size:12px">+ Add agenda item</a></div>
+</div>
+</div>
+<div>
+<div class="card">
+<div class="card-header">Preparedness summary</div>
+<div style="text-align:center">
+<div style="display:flex;align-items:center;justify-content:center;margin-bottom:14px;position:relative">
+<svg height="100" style="transform:rotate(-90deg)" viewbox="0 0 100 100" width="100">
+<circle cx="50" cy="50" fill="none" r="40" stroke="#e5e7eb" stroke-width="8"></circle>
+<circle cx="50" cy="50" fill="none" r="40" stroke="#0072CE" stroke-dasharray="251.2" stroke-dashoffset="50.24" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div style="position:absolute;text-align:center">
+<div style="font-size:28px;font-weight:700;color:var(--text-dark)">80%</div>
+<div style="font-size:11px;color:var(--text-light)">Agenda readiness</div>
+</div>
+</div>
+<div class="prep-stats">
+<div class="prep-stat"><div class="prep-stat-val">6/9</div><div class="prep-stat-lbl">Documents ready</div></div>
+<div class="prep-stat"><div class="prep-stat-val">88%</div><div class="prep-stat-lbl">AI Confidence</div></div>
+<div class="prep-stat"><div class="prep-stat-val">Low Risk</div><div class="prep-stat-lbl">Risk level</div></div>
+<div class="prep-stat"><div class="prep-stat-val">45 min</div><div class="prep-stat-lbl">Total time</div></div>
+</div>
+<div style="text-align:left;margin-bottom:14px">
+<div style="font-size:12px;font-weight:600;color:var(--text-dark);margin-bottom:8px">Key talking points</div>
+<div class="talking-point">YTD portfolio return of +7.2% outperforms benchmark by 1.4%</div>
+<div class="talking-point">Roth conversion window closing — act before Q4</div>
+<div class="talking-point">Beneficiary update still pending — address at meeting</div>
+<div class="talking-point">CD maturity in 2 weeks — discuss reinvestment options</div>
+</div>
+<button class="btn btn-primary" style="width:100%">Generate full brief</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+<!-- ===== SCREEN: scheduling ===== -->
+<div class="screen" id="s-scheduling" style="flex-direction:column;">
+<div class="live-strip">
+<div class="live-dot"></div>
+<div><div class="live-name">John Martinez</div><div class="live-since">Client since 2017 · <span class="live-link">View client profile</span></div></div>
+<div class="live-controls">
+<span class="live-verified">✓ Verified identity</span>
+<button class="live-pill">Hold</button>
+<button class="live-pill">Transfer</button>
+<button class="live-pill">Mute</button>
+<button class="live-pill">Recording</button>
+<span class="live-timer" id="timer1">00:01:07</span>
+</div>
+<button class="btn btn-red btn-sm" style="margin-left:auto">End Call</button>
+</div>
+<div style="flex:1;display:flex;overflow:hidden;">
+<div class="main-content">
+<div class="page-header" style="background:var(--light-bg)"><h1>My Dashboard</h1><span style="font-size:12px;color:var(--text-light);margin-left:auto">Last updated: Today, 8:30AM</span></div>
+<div class="widget-grid">
+<div class="card" style="grid-row:span 2"><div class="card-header">Today</div><div class="appt-item"><div class="appt-border" style="background:#F59E0B"></div><div class="appt-time">9:00 AM</div><div><div class="appt-name">Portfolio review</div><div class="appt-client">Barbara Johnson</div></div></div><div class="appt-item"><div class="appt-border" style="background:var(--blue)"></div><div class="appt-time">10:00 AM</div><div><div class="appt-name">Beneficiaries follow-up</div><div class="appt-client">Dominic Torres</div></div></div></div>
+<div class="card"><div class="card-header">Key Practice Metrics</div><div class="metric-boxes"><div class="metric-box"><div class="metric-label">Gross commissions</div><div class="metric-value">$262K</div></div><div class="metric-box"><div class="metric-label">Client health</div><div class="metric-value">86%</div></div><div class="metric-box"><div class="metric-label">CST Capacity</div><div class="metric-value">86%</div></div></div></div>
+<div class="card"><div class="card-header">My priority list</div><div style="color:var(--text-light);font-size:12px">Priority clients...</div></div>
+<div class="card"><div class="card-header">Market Insights</div><div style="color:var(--text-light);font-size:12px">Market news...</div></div>
+<div class="card"><div class="card-header">RMDs before year-end</div><div style="font-size:15px;font-weight:700;color:var(--text-dark)">32 clients require withdrawals</div></div>
+</div>
+</div>
+
+</div>
+</div>
+<!-- ===== SCREEN: scheduling-confirmed ===== -->
+<div class="screen" id="s-scheduling-confirmed" style="flex-direction:column;">
+<div class="live-strip">
+<div class="live-dot"></div>
+<div><div class="live-name">John Martinez</div><div class="live-since">Client since 2017 · <span class="live-link">View client profile</span></div></div>
+<div class="live-controls">
+<span class="live-verified">✓ Verified identity</span>
+<button class="live-pill">Hold</button>
+<button class="live-pill">Transfer</button>
+<button class="live-pill">Mute</button>
+<button class="live-pill">Recording</button>
+<span class="live-timer">00:01:48</span>
+</div>
+<button class="btn btn-red btn-sm" style="margin-left:auto">End Call</button>
+</div>
+<div style="flex:1;display:flex;overflow:hidden;">
+<div class="main-content">
+<div class="page-header" style="background:var(--light-bg)"><h1>My Dashboard</h1><span style="font-size:12px;color:var(--text-light);margin-left:auto">Last updated: Today, 8:30AM</span></div>
+<div class="widget-grid">
+<div class="card" style="grid-row:span 2"><div class="card-header">Today</div><div class="appt-item"><div class="appt-border" style="background:#F59E0B"></div><div class="appt-time">9:00 AM</div><div><div class="appt-name">Portfolio review</div><div class="appt-client">Barbara Johnson</div></div></div></div>
+<div class="card"><div class="card-header">Key Practice Metrics</div><div style="color:var(--text-light);font-size:12px">Metrics here...</div></div>
+<div class="card"><div class="card-header">My priority list</div><div style="color:var(--text-light);font-size:12px">Priority list here...</div></div>
+</div>
+</div>
+
+</div>
+</div>
+</div><!-- Persistent Right Panel -->
+<div class="right-panel" style="width:240px;min-width:240px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column;height:100%;overflow:hidden;min-height:0;">
+<div class="panel-tabs" style="display:flex;border-bottom:1px solid #e5e7eb;padding:4px 8px;gap:2px;">
+<div class="panel-tab" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Edit">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+</div>
+<div class="panel-tab" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Calendar">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><rect height="18" rx="2" ry="2" width="18" x="3" y="4"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+</div>
+<div class="panel-tab" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="List">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><line x1="8" x2="21" y1="6" y2="6"></line><line x1="8" x2="21" y1="12" y2="12"></line><line x1="8" x2="21" y1="18" y2="18"></line><line x1="3" x2="3.01" y1="6" y2="6"></line><line x1="3" x2="3.01" y1="12" y2="12"></line><line x1="3" x2="3.01" y1="18" y2="18"></line></svg>
+</div>
+<div class="panel-tab" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Chart">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line><line x1="2" x2="22" y1="20" y2="20"></line></svg>
+</div>
+<div class="panel-tab active" id="tab-alerts" onclick="switchDashPanel('alerts')" style="padding:6px;border-radius:6px;cursor:pointer;color:#1a5fa8;background:#eff6ff;" title="Alerts">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+</div>
+<div class="panel-tab" id="tab-guidance" onclick="switchDashPanel('guidance')" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Guidance Center">
+<svg height="22" viewbox="0 0 56 56" width="22"><rect fill="#F5A800" height="56" rx="10" width="56"></rect><polygon fill="#5a5232" points="28,10 14,38 42,38"></polygon><polygon fill="#c8a800" points="20,38 28,22 36,38"></polygon><path d="M12,40 Q20,36 28,40 Q36,44 44,40 L44,44 Q36,48 28,44 Q20,40 12,44 Z" fill="#5a5232"></path></svg>
+</div>
+</div>
+<!-- Alerts Panel -->
+<div id="dash-panel-alerts" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+<div style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">
+<div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:6px;">Practice Assistant</div>
+<div style="display:flex;gap:4px;font-size:11px;">
+<span style="background:#1a5fa8;color:#fff;padding:2px 8px;border-radius:12px;cursor:pointer;">All</span>
+<span style="color:#6b7280;padding:2px 8px;border-radius:12px;cursor:pointer;">Notif.</span>
+<span style="color:#6b7280;padding:2px 8px;border-radius:12px;cursor:pointer;">Messages</span>
+<span style="color:#6b7280;padding:2px 8px;border-radius:12px;cursor:pointer;">Mis...</span>
+</div>
+</div>
+<div style="flex:1;overflow-y:auto;padding:8px;">
+<!-- Emma Johnson -->
+<div style="padding:8px;border-radius:8px;margin-bottom:6px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+<div style="width:28px;height:28px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#1d4ed8;flex-shrink:0;">EJ</div>
+<div style="flex:1;min-width:0;">
+<div style="font-size:12px;font-weight:600;color:#111827;">Emma Johnson</div>
+<div style="font-size:11px;color:#6b7280;">2 min ago</div>
+</div>
+<div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0;"></div>
+</div>
+<div style="font-size:11px;color:#374151;line-height:1.4;">Requesting docs for beneficiary update on trust account</div>
+</div>
+<!-- Lucy Chen -->
+<div style="padding:8px;border-radius:8px;margin-bottom:6px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+<div style="width:28px;height:28px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#16a34a;flex-shrink:0;">LC</div>
+<div style="flex:1;min-width:0;">
+<div style="font-size:12px;font-weight:600;color:#111827;">Lucy Chen</div>
+<div style="font-size:11px;color:#6b7280;">15 min ago</div>
+</div>
+</div>
+<div style="font-size:11px;color:#374151;line-height:1.4;">Portfolio rebalancing review scheduled for Friday</div>
+</div>
+<!-- David Hernandez -->
+<div style="padding:8px;border-radius:8px;margin-bottom:6px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+<div style="width:28px;height:28px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#d97706;flex-shrink:0;">DH</div>
+<div style="flex:1;min-width:0;">
+<div style="font-size:12px;font-weight:600;color:#111827;">David Hernandez</div>
+<div style="font-size:11px;color:#6b7280;">1 hr ago</div>
+</div>
+</div>
+<div style="font-size:11px;color:#374151;line-height:1.4;">Question about RMD calculation for IRA rollover</div>
+</div>
+<!-- Sarah Patel -->
+<div style="padding:8px;border-radius:8px;margin-bottom:6px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+<div style="width:28px;height:28px;border-radius:50%;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#db2777;flex-shrink:0;">SP</div>
+<div style="flex:1;min-width:0;">
+<div style="font-size:12px;font-weight:600;color:#111827;">Sarah Patel</div>
+<div style="font-size:11px;color:#6b7280;">2 hr ago</div>
+</div>
+</div>
+<div style="font-size:11px;color:#374151;line-height:1.4;">Follow-up on estate planning strategy meeting</div>
+</div>
+<!-- Elena Roberts -->
+<div style="padding:8px;border-radius:8px;margin-bottom:6px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+<div style="width:28px;height:28px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#7c3aed;flex-shrink:0;">ER</div>
+<div style="flex:1;min-width:0;">
+<div style="font-size:12px;font-weight:600;color:#111827;">Elena Roberts</div>
+<div style="font-size:11px;color:#6b7280;">3 hr ago</div>
+</div>
+</div>
+<div style="font-size:11px;color:#374151;line-height:1.4;">Tax-loss harvesting opportunity identified in portfolio</div>
+</div>
+</div>
+</div>
+<!-- Guidance Center Panel -->
+<div id="dash-panel-guidance" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+
+  <!-- Guidance Center: program list view -->
+  <div id="gc-list" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+    <div style="padding:8px 12px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:600;font-size:13px;color:#111827;">Guidance Center</div>
+      <span style="font-size:11px;color:#0072CE;cursor:pointer;">View More</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:8px;">
+      <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Selected for You</div>
+      <!-- Program 1: Generational Wealth -->
+      <div style="padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;" onclick="">
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;">
+          <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg fill="none" height="18" stroke="#fff" stroke-width="2" viewBox="0 0 24 24" width="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;color:#6b7280;margin-bottom:2px;">Program | Company Assigned</div>
+            <div style="font-size:12px;font-weight:600;color:#111827;line-height:1.3;">Supporting Clients With Generational Wealth Transfer</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:6px;">Generational wealth transfer is one of the single greatest threats to advisor retention. 70% of heirs switch advisors after inheriting wealth.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:11px;color:#6b7280;">Due 9/17/2026</span>
+          <span style="font-size:11px;font-weight:600;color:#111827;">55%</span>
+        </div>
+        <div style="background:#e5e7eb;border-radius:4px;height:6px;overflow:hidden;"><div style="background:#0072CE;height:100%;width:55%;border-radius:4px;"></div></div>
+      </div>
+      <!-- Program 2: Making Good Choices — clickable -->
+      <div style="padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;" onclick="openMGC()">
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;">
+          <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg fill="none" height="18" stroke="#fff" stroke-width="2" viewBox="0 0 24 24" width="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;color:#6b7280;margin-bottom:2px;">Program | Company Assigned</div>
+            <div style="font-size:12px;font-weight:600;color:#111827;line-height:1.3;">Making Good Choices</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#374151;line-height:1.4;margin-bottom:6px;">Over the next 30 days, this campaign will help you use the new "Making Good Choices" framework to guide client conversations and identify opportunities.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:11px;color:#6b7280;">Due 10/21/2026</span>
+          <span style="font-size:11px;color:#6b7280;">~30 days</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Making Good Choices: program detail view -->
+  <div id="gc-mgc" style="display:none;flex-direction:column;position:absolute;inset:0;background:#fff;z-index:10;overflow:hidden;">
+    <!-- Header with back arrow -->
+    <div style="padding:8px 10px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button onclick="closeMGC()" style="background:none;border:1px solid #d1d5db;border-radius:6px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#374151" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span style="font-weight:600;font-size:13px;color:#111827;flex:1;">Making Good Choices</span>
+      <span style="font-size:16px;cursor:pointer;color:#6b7280;">📌</span>
+      <span style="font-size:16px;cursor:pointer;color:#6b7280;">🏠</span>
+      <span style="font-size:16px;cursor:pointer;color:#6b7280;" onclick="closeMGC()">✕</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;min-height:0;">
+      <!-- Program title + description -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+        <h3 style="font-size:16px;font-weight:700;color:#111827;margin:0;line-height:1.3;">Making Good Choices</h3>
+        <button style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;color:#374151;">▼</button>
+      </div>
+      <p style="font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;">Over the next 30 days, this campaign will help you use the new "Making Good Choices" framework to guide client conversations, better understand what matters to your clients, and identify opportunities where financial planning or investment advisory solutions may add value to your clients.</p>
+
+      <!-- Progress bar -->
+      <div style="text-align:right;font-size:12px;font-weight:700;color:#111827;margin-bottom:4px;">0%</div>
+      <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;"><div style="background:#0072CE;height:100%;width:0%;border-radius:4px;"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:2px;">
+        <span>Due 10/21/2026</span><span>0 of 12</span>
+      </div>
+      <div style="border-top:1px solid #e5e7eb;margin:12px 0;"></div>
+
+      <!-- Milestones & Exercises header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-weight:600;font-size:13px;color:#111827;">Milestones &amp; Exercises</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:#6b7280;color:white;font-size:9px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;">i</span>
+        </div>
+        <span style="font-size:11px;color:#0072CE;cursor:pointer;" onclick="expandAllMGC()">Expand All</span>
+      </div>
+
+      <!-- Milestone 1: Orient & Focus -->
+      <div class="mgc-milestone">
+        <div class="mgc-ms-hdr" onclick="toggleMGCMs(this)">
+          <span class="mgc-chev">▼</span>
+          <div class="mgc-circle"></div>
+          <span class="mgc-ms-title">Orient &amp; Focus <span style="color:#6b7280;font-weight:400;">(2)</span></span>
+        </div>
+        <div class="mgc-ms-body">
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Action Item</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Purpose</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Get oriented to the campaign and review the Making Good Choices framework</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/10/2026</span><span style="color:#0072CE;font-weight:500;cursor:pointer;">Mark as Complete</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#2E844A;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Document</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Review Relationship-Level Making Good Choices with FA Managed Solutions Document</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Use this new relationship level, making good choices when presenting.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/10/2026</span><span>~6 mins</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Milestone 2: Identify the Right Clients -->
+      <div class="mgc-milestone">
+        <div class="mgc-ms-hdr" onclick="toggleMGCMs(this)">
+          <span class="mgc-chev">▼</span>
+          <div class="mgc-circle"></div>
+          <span class="mgc-ms-title">Identify the Right Clients <span style="color:#6b7280;font-weight:400;">(3)</span></span>
+        </div>
+        <div class="mgc-ms-body">
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Action Item</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Purpose</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Determine which clients in your practice may benefit from deeper conversations.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/10/2026</span><span style="color:#0072CE;font-weight:500;cursor:pointer;">Mark as Complete</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Other</div>
+              <div style="font-weight:700;font-size:12px;color:#0072CE;cursor:pointer;" onclick="openActionableList()">Review the actionable list</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Review the Actionable Client List to help you get started.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/11/2026</span><span></span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#2E844A;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Document</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Review the Proven Practice Document</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Use available insights to refine or expand your client list by leveraging this document</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/14/2026</span><span>~6 mins</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Milestone 3: Prepare for the Conversation -->
+      <div class="mgc-milestone">
+        <div class="mgc-ms-hdr" onclick="toggleMGCMs(this)">
+          <span class="mgc-chev">▼</span>
+          <div class="mgc-circle"></div>
+          <span class="mgc-ms-title">Prepare for the Conversation <span style="color:#6b7280;font-weight:400;">(4)</span></span>
+        </div>
+        <div class="mgc-ms-body">
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Action Item</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Purpose</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Use the Making Good Choices framework so you can guide client conversations.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/15/2026</span><span style="color:#0072CE;font-weight:500;cursor:pointer;">Mark as Complete</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Other</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Watch the How We Work Together Video</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">This video reinforces how we can partner with clients through advice, lead... <span style="color:#0072CE;cursor:pointer;">Show More</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/16/2026</span><span>~6 mins</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Other</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">What the Financial Planning Plus Overview Video</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">This document supports conversations where planning may be appropriate.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/17/2026</span><span>~6 mins</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#2E844A;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Document</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Read the New Making Good Choices Conversation</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Reinforces the broader Making Good Choices framework and financial advisory.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/18/2026</span><span>~6 mins</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Milestone 4: Have Conversations & Follow Ups -->
+      <div class="mgc-milestone">
+        <div class="mgc-ms-hdr" onclick="toggleMGCMs(this)">
+          <span class="mgc-chev">▼</span>
+          <div class="mgc-circle"></div>
+          <span class="mgc-ms-title">Have Conversations &amp; Follow Ups <span style="color:#6b7280;font-weight:400;">(3)</span></span>
+        </div>
+        <div class="mgc-ms-body">
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Action Item</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Purpose</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Apply Making Good Choices in client conversations and document outcomes.</div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 9/23/2026</span><span style="color:#0072CE;font-weight:500;cursor:pointer;">Mark as Complete</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#2E844A;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Document</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Engage Target Clients</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Review the Actionable Client List and identify clients for 10 meaningful Making... <span style="color:#0072CE;cursor:pointer;">Show More</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 10/7/2026</span><span>~6 mins</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #f3f4f6;margin:6px 0;"></div>
+          <div class="mgc-exercise">
+            <div style="width:36px;height:36px;border-radius:6px;background:#1a5fa8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;color:#6b7280;">Action Item</div>
+              <div style="font-weight:700;font-size:12px;color:#111827;">Schedule and Conduct Meetings</div>
+              <div style="font-size:11px;color:#374151;line-height:1.4;margin:2px 0;">Schedule and conduct meetings. Include Making Good Choices and applicable... <span style="color:#0072CE;cursor:pointer;">Show More</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;"><span>Due 10/21/2026</span><span style="color:#0072CE;font-weight:500;cursor:pointer;">Mark as Complete</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== SCREEN: actionable-list ===== -->
+<div id="s-actionable-list" class="screen" style="flex-direction:column;background:white;overflow-y:auto;overflow-x:hidden;width:100%;min-width:0;">
+  <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;">
+    <button onclick="nav('dashboard-default')" style="background:none;border:none;cursor:pointer;color:#0072CE;font-size:13px;display:flex;align-items:center;gap:4px;">← Back to Dashboard</button>
+    <h2 style="font-size:18px;font-weight:700;color:#111827;margin:0;">Members</h2>
+  </div>
+  <!-- Navy action bar -->
+  <div style="background:#00305E;padding:10px 20px;display:flex;align-items:center;justify-content:flex-end;">
+    <button style="background:white;color:#00305E;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Show KPI Bar</button>
+  </div>
+  <!-- Table controls -->
+  <div style="padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;">
+    <span style="font-size:13px;color:#374151;font-weight:500;">10 items</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:6px;border:1px solid #d1d5db;border-radius:6px;padding:5px 10px;font-size:12px;color:#6b7280;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#6b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Search this list...
+      </div>
+      <button style="background:none;border:1px solid #d1d5db;border-radius:6px;padding:5px 8px;cursor:pointer;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#374151" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Bulk actions row -->
+  <div style="padding:6px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:16px;font-size:12px;color:#9ca3af;">
+    <span style="font-weight:500;color:#374151;">Selected (0):</span>
+    <span style="display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="#F5A800"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Change Assignee</span>
+    <span style="display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="#F5A800"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Create and Assign Action Plan</span>
+    <span style="display:flex;align-items:center;gap:4px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="#F5A800"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Add to Campaign</span>
+  </div>
+  <!-- Table -->
+  <div style="overflow:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+          <th style="width:36px;padding:8px 12px;"><input type="checkbox"></th>
+          <th style="width:28px;padding:8px 4px;color:#6b7280;font-weight:500;text-align:left;">#</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Referen... <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;">Preview Details</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Actionable List Member Sta... <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assignee <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assign... <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Record... <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Email <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Title <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Birthdate <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Wallet S... <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Annual I... <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assets <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><polyline points="6 9 12 15 18 9"/></svg></th>
+        </tr>
+      </thead>
+      <tbody id="al-tbody">
+        <tr style="border-bottom:1px solid #f3f4f6;background:white">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">1</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Displaytech</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">2</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Charlie Ellis</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">hparrish...</td><td style="padding:8px 12px;color:#374151">Banking Client</td><td style="padding:8px 12px;color:#374151">May 21, 1992</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">$305,924.00</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:white">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">3</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Employnet</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">4</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Duncan Macint...</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">eziegler.1...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Feb 7, 1969</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:white">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">5</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Gabe Hoskins</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">kthorne.1...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Feb 16, 1974</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">6</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Chip Colli</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">hquinlan...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Dec 24, 1973</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:white">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">7</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Deanna Collins</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">xblue.19...</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Aug 19, 1982</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">8</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">CCAnonymous</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:white">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">9</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Frank Household</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">100%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa">
+          <td style="padding:8px 12px"><input type="checkbox"></td><td style="padding:8px 4px;color:#6b7280">10</td>
+          <td style="padding:8px 12px;color:#0072CE;cursor:pointer;font-weight:500">Deloitte LLP</td>
+          <td style="padding:8px 12px;text-align:center"><div style="width:26px;height:26px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>
+          <td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td>
+          <td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div><!-- end screens -->
+</div><!-- end app-body -->
+</div><!-- end chrome-window -->
+<script>
+var currentScreen = 'dashboard-default';
+var navMap = {
+  'dashboard-default':'nav-home','dashboard-reply-emma':'nav-home','dashboard-sent-emma':'nav-home',
+  'dashboard-today-connections':'nav-home','actionable-list':'nav-home','calendar-full':'nav-calendar','client-barbara':'nav-clients',
+  'meeting-prep':'nav-clients','scheduling':'nav-home','scheduling-confirmed':'nav-home'
+};
+
+function nav(screen) {
+  var old = document.getElementById('s-' + currentScreen);
+  if (old) { old.style.display = 'none'; old.classList.remove('active'); }
+  currentScreen = screen;
+  var el = document.getElementById('s-' + screen);
+  if (el) { el.style.display = 'flex'; el.classList.add('active'); }
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  var nid = navMap[screen];
+  if (nid) { var ni = document.getElementById(nid); if(ni) ni.classList.add('active'); }
+  // Always close actionable list on any navigation
+  var grid = document.getElementById('dash-widget-grid');
+  var al = document.getElementById('dash-actionable-list');
+  if (grid) grid.style.display = '';
+  if (al) al.style.display = 'none';
+}
+
+function toggleAgenda(hdr) {
+  var body = hdr.nextElementSibling;
+  var chev = hdr.querySelector('.agenda-chevron');
+  if (body.classList.contains('open')) { body.classList.remove('open'); chev.textContent = '▶'; }
+  else { body.classList.add('open'); chev.textContent = '▼'; }
+}
+
+function selectSlot(row) {
+  document.querySelectorAll('.slot-row').forEach(function(r){ r.classList.remove('selected'); });
+  row.classList.add('selected');
+  var btn = document.getElementById('confirm-btn');
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.classList.add('btn-primary'); }
+}
+
+var alData = [
+  {name:'Displaytech', assignee:'Paige Everett', record:'Active', email:'', title:'', birth:'', wallet:'0%', annual:'', assets:''},
+  {name:'Charlie Ellis', assignee:'Paige Everett', record:'Active', email:'hparrish...', title:'Banking Client', birth:'May 21, 1992', wallet:'0%', annual:'', assets:'$305,924.00'},
+  {name:'Employnet', assignee:'Paige Everett', record:'Active', email:'', title:'', birth:'', wallet:'0%', annual:'', assets:''},
+  {name:'Duncan Macint...', assignee:'Paige Everett', record:'Active', email:'eziegler.1...', title:'', birth:'Feb 7, 1969', wallet:'0%', annual:'', assets:''},
+  {name:'Gabe Hoskins', assignee:'Paige Everett', record:'Active', email:'kthorne.1...', title:'', birth:'Feb 16, 1974', wallet:'0%', annual:'', assets:''},
+  {name:'Chip Colli', assignee:'Paige Everett', record:'Active', email:'hquinlan...', title:'', birth:'Dec 24, 1973', wallet:'0%', annual:'', assets:''},
+  {name:'Deanna Collins', assignee:'Paige Everett', record:'Active', email:'xblue.19...', title:'', birth:'Aug 19, 1982', wallet:'0%', annual:'', assets:''},
+  {name:'CCAnonymous', assignee:'Paige Everett', record:'Active', email:'', title:'', birth:'', wallet:'0%', annual:'', assets:''},
+  {name:'Frank Household', assignee:'Paige Everett', record:'Active', email:'', title:'', birth:'', wallet:'100%', annual:'', assets:''},
+  {name:'Deloitte LLP', assignee:'Paige Everett', record:'Active', email:'', title:'', birth:'', wallet:'0%', annual:'', assets:''}
+];
+function openActionableList() {
+  if (currentScreen !== 'dashboard-default') { nav('dashboard-default'); }
+  var grid = document.getElementById('dash-widget-grid');
+  var al = document.getElementById('dash-actionable-list');
+  if (grid) grid.style.display = 'none';
+  if (al) al.style.display = 'flex';
+}
+function closeDashActionableList() {
+  var grid = document.getElementById('dash-widget-grid');
+  var al = document.getElementById('dash-actionable-list');
+  if (grid) grid.style.display = '';
+  if (al) al.style.display = 'none';
+}
+function openMGC() {
+  document.getElementById('gc-list').style.display = 'none';
+  document.getElementById('gc-mgc').style.display = 'flex';
+}
+function closeMGC() {
+  document.getElementById('gc-mgc').style.display = 'none';
+  document.getElementById('gc-list').style.display = 'flex';
+}
+function toggleMGCMs(hdr) {
+  var body = hdr.nextElementSibling;
+  var chev = hdr.querySelector('.mgc-chev');
+  if (body.style.display === 'none') { body.style.display = 'block'; chev.textContent = '▼'; }
+  else { body.style.display = 'none'; chev.textContent = '▶'; }
+}
+function expandAllMGC() {
+  document.querySelectorAll('.mgc-ms-body').forEach(function(b){ b.style.display = 'block'; });
+  document.querySelectorAll('.mgc-chev').forEach(function(c){ c.textContent = '▼'; });
+}
+function switchDashPanel(mode) {
+  var alerts = document.getElementById('dash-panel-alerts');
+  var guidance = document.getElementById('dash-panel-guidance');
+  var tabAlerts = document.getElementById('tab-alerts');
+  var tabGuidance = document.getElementById('tab-guidance');
+  if (mode === 'alerts') {
+    if (alerts) alerts.style.display = '';
+    if (guidance) guidance.style.display = 'none';
+    if (tabAlerts) tabAlerts.classList.add('active');
+    if (tabGuidance) tabGuidance.classList.remove('active');
+  } else {
+    if (alerts) alerts.style.display = 'none';
+    if (guidance) guidance.style.display = '';
+    if (tabAlerts) tabAlerts.classList.remove('active');
+    if (tabGuidance) tabGuidance.classList.add('active');
+  }
+}
+
+// ── Salesforce Live Data ─────────────────────────────────────────────────────
+async function loadSFData() {
+  try {
+    // Load current user
+    const me = await fetch('/api/me').then(r => r.json());
+    if (me && me.display_name) {
+      var nameEl = document.getElementById('user-display-name');
+      if (nameEl) nameEl.textContent = me.display_name;
+    }
+
+    // Load contacts → populate actionable list table
+    const contacts = await fetch('/api/contacts').then(r => r.json());
+    if (Array.isArray(contacts) && contacts.length) {
+      var tbody = document.querySelector('#dash-actionable-list table tbody');
+      if (tbody) {
+        tbody.innerHTML = contacts.map(function(c, i) {
+          var bg = i % 2 === 0 ? 'white' : '#fafafa';
+          var birth = c.Birthdate ? new Date(c.Birthdate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
+          return '<tr style="border-bottom:1px solid #f3f4f6;background:' + bg + '">' +
+            '<td style="padding:8px 10px"><input type="checkbox"></td>' +
+            '<td style="padding:8px 6px;color:#6b7280">' + (i+1) + '</td>' +
+            '<td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">' + (c.Name || '') + '</td>' +
+            '<td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>' +
+            '<td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">Active</span></td>' +
+            '<td style="padding:8px 12px;color:#374151">' + (c.Owner ? c.Owner.Name : '') + '</td>' +
+            '<td style="padding:8px 12px;color:#374151">' + (c.Account ? c.Account.Name : '') + '</td>' +
+            '<td style="padding:8px 12px;color:#374151">' + (c.Email || '') + '</td>' +
+            '<td style="padding:8px 12px;color:#374151">' + (c.Title || '') + '</td>' +
+            '<td style="padding:8px 12px;color:#374151">' + birth + '</td>' +
+            '<td style="padding:8px 12px;color:#374151">—</td>' +
+            '<td style="padding:8px 12px;color:#374151">—</td>' +
+            '</tr>';
+        }).join('');
+        // Update item count
+        var countEl = document.querySelector('#dash-actionable-list [style*="10 items"]');
+        if (countEl) countEl.textContent = contacts.length + ' items';
+      }
+    }
+
+    // Load tasks → populate My Priority List
+    const tasks = await fetch('/api/tasks').then(r => r.json());
+    if (Array.isArray(tasks) && tasks.length) {
+      var priorityList = document.querySelector('#dash-priority-list');
+      if (priorityList) {
+        var colors = ['#2563eb','#047857','#7c3aed','#b45309','#dc2626'];
+        priorityList.innerHTML = tasks.slice(0, 5).map(function(t, i) {
+          var initials = (t.Who && t.Who.Name) ? t.Who.Name.split(' ').map(function(n){return n[0];}).join('').substring(0,2) : '??';
+          var due = t.ActivityDate ? new Date(t.ActivityDate).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+          return '<div class="priority-item">' +
+            '<div class="priority-avatar" style="background:' + colors[i % colors.length] + '">' + initials + '</div>' +
+            '<div class="priority-info"><div class="priority-name">' + (t.Who ? t.Who.Name : t.Subject) + '</div>' +
+            '<div class="priority-note">' + t.Subject + (due ? ' · ' + due : '') + '</div></div>' +
+            '</div>';
+        }).join('');
+      }
+    }
+
+    // Load events → populate Today appointments
+    const events = await fetch('/api/events').then(r => r.json());
+    if (Array.isArray(events) && events.length) {
+      var apptList = document.getElementById('today-appointments');
+      if (apptList) {
+        apptList.innerHTML = events.slice(0, 5).map(function(e) {
+          var time = e.StartDateTime ? new Date(e.StartDateTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+          return '<div class="appt-item">' +
+            '<div class="appt-border" style="background:#0072CE"></div>' +
+            '<div class="appt-time">' + time + '</div>' +
+            '<div><div class="appt-name">' + (e.Subject || '') + '</div>' +
+            '<div class="appt-client">' + (e.Who ? e.Who.Name : '') + '</div></div>' +
+            '</div>';
+        }).join('');
+      }
+      // Update chip count
+      var apptChip = document.querySelector('.chip-blue');
+      if (apptChip) apptChip.textContent = events.length + ' appointments →';
+    }
+
+  } catch (err) {
+    console.warn('SF data load failed (running in standalone mode):', err.message);
+  }
+}
+
+// Run on load
+document.addEventListener('DOMContentLoaded', function() {
+  loadSFData();
+});
+</script>
+</body>
+</html>
