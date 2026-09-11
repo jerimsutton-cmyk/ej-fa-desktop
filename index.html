@@ -1671,9 +1671,9 @@ async function loadGuidanceCenter() {
     }
 
     var completed = (p.MyEnrollmentStatus === 'Succeeded');
-    var pct = completed ? 100 : (p.TotalAssigned ? Math.round((p.TotalCompleted / p.TotalAssigned) * 100) : 0);
+    var pct = completed ? 100 : 0;   // learner view: reflect the user's own status, not org-wide completion
     var metaRow = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;');
-    metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : '') + ' · ' + p.TotalAssigned + ' enrolled'));
+    metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : (p.Type || 'Enablement program'))));
     var badgeColor = completed ? '#047857' : '#b45309';
     metaRow.appendChild(el('span', 'font-size:11px;font-weight:600;color:' + badgeColor + ';', completed ? 'Completed' : (p.MyEnrollmentStatus || p.Status)));
     card.appendChild(metaRow);
@@ -1741,14 +1741,15 @@ async function openProgramDetail(id) {
   if (prog.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;', prog.Description));
 
   var completed = (p.MyEnrollmentStatus === 'Succeeded');
-  var pct = completed ? 100 : (prog.TotalAssigned ? Math.round((prog.TotalCompleted / prog.TotalAssigned) * 100) : 0);
-  nodes.push(el('div', 'text-align:right;font-size:12px;font-weight:700;color:#111827;margin-bottom:4px;', pct + '%'));
+  var pct = completed ? 100 : 0;   // learner view: reflect the user's own status, not org-wide completion
+  var statusLabel = completed ? 'Completed' : (p.MyEnrollmentStatus || prog.Status || 'Enrolled');
+  nodes.push(el('div', 'text-align:right;font-size:12px;font-weight:700;color:' + (completed ? '#047857' : '#b45309') + ';margin-bottom:4px;', statusLabel));
   var bar = el('div', 'background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;');
   bar.appendChild(el('div', 'background:#0072CE;height:100%;width:' + pct + '%;border-radius:4px;'));
   nodes.push(bar);
   var meta = el('div', 'display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:2px;');
   meta.appendChild(el('span', '', (prog.TotalDays ? prog.TotalDays + '-day program' : (prog.Type || 'Enablement'))));
-  meta.appendChild(el('span', '', data.taskCount + ' exercises · ' + (prog.TotalAssigned || 0) + ' enrolled'));
+  meta.appendChild(el('span', '', data.taskCount + ' exercises'));
   nodes.push(meta);
   nodes.push(el('div', 'border-top:1px solid #e5e7eb;margin:12px 0;'));
 
