@@ -538,7 +538,12 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 <!-- Actionable List full-page view (hidden by default) -->
 <div id="dash-actionable-list" style="display:none;flex-direction:column;flex:1;overflow:hidden;background:white;border-radius:8px;border:1px solid #e5e7eb;margin:0 16px 16px 16px;">
   <div style="background:#00305E;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;flex-shrink:0;">
-    <span style="color:white;font-weight:600;font-size:13px;">Members — Actionable List</span>
+    <div style="display:flex;gap:10px;align-items:center;min-width:0;">
+      <span style="color:white;font-weight:600;font-size:13px;white-space:nowrap;">Members —</span>
+      <select id="al-list-select" onchange="loadActionableListMembers(this.value)" style="background:white;color:#00305E;border:none;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;max-width:420px;">
+        <option value="">Loading actionable lists…</option>
+      </select>
+    </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button onclick="closeDashActionableList()" style="background:white;color:#00305E;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">✕ Close</button>
       <button style="background:white;color:#00305E;border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;">Show KPI Bar</button>
@@ -546,7 +551,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
   </div>
   <div style="padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:16px;font-size:11px;">
-      <span style="font-weight:500;color:#374151;">10 items</span>
+      <span id="al-item-count" style="font-weight:500;color:#374151;">10 items</span>
       <span style="color:#9ca3af;">Selected (0):</span>
       <span style="color:#9ca3af;cursor:pointer;">⚡ Change Assignee</span>
       <span style="color:#9ca3af;cursor:pointer;">⚡ Create and Assign Action Plan</span>
@@ -566,7 +571,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;">Preview</th>
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Status</th>
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assignee</th>
-          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Record</th>
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Annual Income</th>
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Email</th>
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Title</th>
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Birthdate</th>
@@ -574,7 +579,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Assets</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="al-live-tbody">
         <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">1</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Displaytech</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
         <tr style="border-bottom:1px solid #f3f4f6;background:#fafafa"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">2</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Charlie Ellis</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px;color:#374151">hparrish...</td><td style="padding:8px 12px;color:#374151">Banking Client</td><td style="padding:8px 12px;color:#374151">May 21, 1992</td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px;color:#374151">$305,924</td></tr>
         <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 10px"><input type="checkbox"></td><td style="padding:8px 6px;color:#6b7280">3</td><td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">Employnet</td><td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td><td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">New</span></td><td style="padding:8px 12px;color:#374151">Paige Everett</td><td style="padding:8px 12px;color:#374151">Active</td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px"></td><td style="padding:8px 12px;color:#374151">0%</td><td style="padding:8px 12px"></td></tr>
@@ -1552,36 +1557,8 @@ async function loadSFData() {
       if (nameEl) nameEl.textContent = me.display_name;
     }
 
-    // Load contacts → populate actionable list table
-    const contacts = await fetch('/api/contacts').then(r => r.json());
-    if (Array.isArray(contacts) && contacts.length) {
-      window._contactsById = {};
-      contacts.forEach(function(c){ window._contactsById[c.Id] = c; });
-      var tbody = document.querySelector('#dash-actionable-list table tbody');
-      if (tbody) {
-        tbody.innerHTML = contacts.map(function(c, i) {
-          var bg = i % 2 === 0 ? 'white' : '#fafafa';
-          var birth = c.Birthdate ? new Date(c.Birthdate).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
-          return '<tr style="border-bottom:1px solid #f3f4f6;background:' + bg + '">' +
-            '<td style="padding:8px 10px"><input type="checkbox"></td>' +
-            '<td style="padding:8px 6px;color:#6b7280">' + (i+1) + '</td>' +
-            '<td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer" title="Click to edit in Salesforce" onclick="openContactEdit(\'' + c.Id + '\')">' + (c.Name || '') + ' <span style="color:#9ca3af;font-size:11px">✎</span></td>' +
-            '<td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>' +
-            '<td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">Active</span></td>' +
-            '<td style="padding:8px 12px;color:#374151">' + (c.Owner ? c.Owner.Name : '') + '</td>' +
-            '<td style="padding:8px 12px;color:#374151">' + (c.Account ? c.Account.Name : '') + '</td>' +
-            '<td style="padding:8px 12px;color:#374151">' + (c.Email || '') + '</td>' +
-            '<td style="padding:8px 12px;color:#374151">' + (c.Title || '') + '</td>' +
-            '<td style="padding:8px 12px;color:#374151">' + birth + '</td>' +
-            '<td style="padding:8px 12px;color:#374151">—</td>' +
-            '<td style="padding:8px 12px;color:#374151">—</td>' +
-            '</tr>';
-        }).join('');
-        // Update item count
-        var countEl = document.querySelector('#dash-actionable-list [style*="10 items"]');
-        if (countEl) countEl.textContent = contacts.length + ' items';
-      }
-    }
+    // Load the real Salesforce Actionable Lists into the picker (members load on select)
+    loadActionableLists();
 
     // Load tasks → populate My Priority List
     const tasks = await fetch('/api/tasks').then(r => r.json());
@@ -1643,6 +1620,89 @@ function fmtMeasure(m) {
     return '$' + n.toLocaleString();
   }
   return n.toLocaleString();
+}
+
+// ── Actionable Lists (FSC Actionable Segmentation) ───────────────────────────
+// Populates the "Review the actionable list" picker with real Salesforce lists,
+// then loads the selected list's members (person Accounts) into the table.
+async function loadActionableLists() {
+  var sel = document.getElementById('al-list-select');
+  if (!sel) return;
+  try {
+    var lists = await fetch('/api/actionable-lists').then(function(r){ return r.json(); });
+    if (!Array.isArray(lists) || !lists.length) {
+      sel.replaceChildren(el('option', '', 'No actionable lists found'));
+      return;
+    }
+    window._actionableLists = lists;
+    sel.replaceChildren.apply(sel, lists.map(function(l) {
+      var o = el('option', '', l.name + (l.memberCount != null ? ' (' + l.memberCount + ')' : ''));
+      o.value = l.id;
+      return o;
+    }));
+    loadActionableListMembers(lists[0].id);
+  } catch (err) {
+    console.warn('actionable lists load failed:', err.message);
+  }
+}
+
+async function loadActionableListMembers(listId) {
+  var tbody = document.getElementById('al-live-tbody');
+  var countEl = document.getElementById('al-item-count');
+  if (!tbody || !listId) return;
+  tbody.replaceChildren(alRowMsg('Loading members…'));
+  try {
+    var members = await fetch('/api/actionable-lists/' + encodeURIComponent(listId) + '/members').then(function(r){ return r.json(); });
+    if (!Array.isArray(members)) members = [];
+    if (countEl) countEl.textContent = members.length + (members.length === 1 ? ' item' : ' items');
+    if (!members.length) { tbody.replaceChildren(alRowMsg('No members in this list.')); return; }
+    tbody.replaceChildren.apply(tbody, members.map(function(m, i){ return alMemberRow(m, i); }));
+  } catch (err) {
+    tbody.replaceChildren(alRowMsg('Could not load members.'));
+  }
+}
+
+function alMoney(n) {
+  if (n == null || n === '' || isNaN(Number(n))) return '';
+  return '$' + Math.round(Number(n)).toLocaleString();
+}
+function alDate(d) {
+  if (!d) return '';
+  var dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function alCell(text) {
+  return el('td', 'padding:8px 12px;color:#374151;', text == null ? '' : text);
+}
+function alRowMsg(text) {
+  var tr = el('tr', '');
+  var td = el('td', 'padding:16px;color:#6b7280;font-size:12px;text-align:center;', text);
+  td.setAttribute('colspan', '12');
+  tr.appendChild(td);
+  return tr;
+}
+function alMemberRow(m, i) {
+  var tr = el('tr', 'border-bottom:1px solid #f3f4f6;background:' + (i % 2 === 0 ? 'white' : '#fafafa') + ';');
+  var cbTd = el('td', 'padding:8px 10px;');
+  var cb = el('input'); cb.type = 'checkbox'; cbTd.appendChild(cb);
+  tr.appendChild(cbTd);
+  tr.appendChild(el('td', 'padding:8px 6px;color:#6b7280;', String(i + 1)));
+  tr.appendChild(el('td', 'padding:8px 12px;color:#0072CE;font-weight:500;', m.reference || ''));
+  var pvTd = el('td', 'padding:8px 12px;text-align:center;');
+  pvTd.appendChild(el('div', 'width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:12px;', '👁'));
+  tr.appendChild(pvTd);
+  var stTd = el('td', 'padding:8px 12px;');
+  if (m.status) stTd.appendChild(el('span', 'background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500;', m.status));
+  tr.appendChild(stTd);
+  tr.appendChild(alCell(m.assignee));
+  tr.appendChild(alCell(alMoney(m.annualIncome)));
+  tr.appendChild(alCell(m.email));
+  tr.appendChild(alCell(m.title));
+  tr.appendChild(alCell(alDate(m.birthdate)));
+  tr.appendChild(alCell(m.walletShare != null ? m.walletShare + '%' : ''));
+  tr.appendChild(alCell(alMoney(m.assets)));
+  return tr;
 }
 
 // ── Guidance Center: enrolled programs + live measures ───────────────────────

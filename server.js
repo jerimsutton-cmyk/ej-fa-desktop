@@ -265,6 +265,58 @@ app.get('/api/accounts', handler(async (conn, req, res) => {
   res.json(result.records);
 }));
 
+// ── READ: Actionable Lists (FSC Actionable Segmentation) ─────────────────────
+// The "Making Good Choices" program's "Review the actionable list" step surfaces
+// these real Salesforce lists (segment membership) instead of a static mock.
+app.get('/api/actionable-lists', handler(async (conn, req, res) => {
+  const result = await conn.query(
+    `SELECT Id, Name, Status, MemberCount
+     FROM ActionableList
+     ORDER BY Name`
+  );
+  res.json(result.records.map(r => ({
+    id: r.Id, name: r.Name, status: r.Status, memberCount: r.MemberCount
+  })));
+}));
+
+// Members of one Actionable List. ReferenceRecord is polymorphic; the org's
+// members are FSC person Accounts, so we resolve those display fields via TYPEOF.
+app.get('/api/actionable-lists/:id/members', handler(async (conn, req, res) => {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9]{15,18}$/.test(id)) {
+    return res.status(400).json({ error: 'Invalid list id' });
+  }
+  const result = await conn.query(
+    `SELECT Id, Name, RecordStatus, AssignmentStatus, Owner.Name,
+            TYPEOF ReferenceRecord
+              WHEN Account THEN Name, PersonEmail, PersonTitle, PersonBirthdate, Phone,
+                   FinServ__WalletShare__c, FinServ__AnnualIncome__pc, FINS_Assets__c, FinServ__NetWorth__c
+              ELSE Name
+            END
+     FROM ActionableListMember
+     WHERE ActionableListId = '${id}'
+     ORDER BY Name
+     LIMIT 200`
+  );
+  res.json(result.records.map(m => {
+    const ref = m.ReferenceRecord || {};
+    const assets = ref.FINS_Assets__c != null ? ref.FINS_Assets__c : ref.FinServ__NetWorth__c;
+    return {
+      id: m.Id,
+      reference: ref.Name || m.Name,
+      recordId: (ref.attributes && ref.attributes.url) ? ref.attributes.url.split('/').pop() : null,
+      status: m.RecordStatus || m.AssignmentStatus || '',
+      assignee: m.Owner ? m.Owner.Name : '',
+      email: ref.PersonEmail || '',
+      title: ref.PersonTitle || '',
+      birthdate: ref.PersonBirthdate || null,
+      walletShare: ref.FinServ__WalletShare__c != null ? ref.FinServ__WalletShare__c : null,
+      annualIncome: ref.FinServ__AnnualIncome__pc != null ? ref.FinServ__AnnualIncome__pc : null,
+      assets: assets != null ? assets : null
+    };
+  }));
+}));
+
 // ── READ: Enablement Programs the current user is ENROLLED in ────────────────
 // Enrollment = LearningItemAssignment (AssigneeId = current user) whose
 // LearningItem rolls up to an EnablementProgram. We surface the enrolled
