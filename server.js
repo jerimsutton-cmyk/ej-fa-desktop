@@ -24,11 +24,13 @@ async function getSFConnection() {
   if (sfConn && sfConnectedAt && (Date.now() - sfConnectedAt < 30 * 60 * 1000)) {
     return sfConn;
   }
+  // Note: we intentionally do NOT pass clientId/clientSecret. jsforce switches
+  // conn.login() to the OAuth2 password grant when both are present, and this
+  // org does not permit that grant ("grant type not supported"). Omitting them
+  // forces plain SOAP username/password login, which the org does allow.
   const conn = new jsforce.Connection({
     loginUrl: process.env.SF_LOGIN_URL || 'https://login.salesforce.com',
     version: SF_API_VERSION,
-    clientId: process.env.SF_CONSUMER_KEY,
-    clientSecret: process.env.SF_CONSUMER_SECRET,
   });
   // Password may need the security token appended if logging in from an
   // untrusted IP: set SF_PASSWORD = <password><securityToken>.
