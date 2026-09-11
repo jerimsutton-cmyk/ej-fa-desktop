@@ -24,12 +24,24 @@ async function getSFConnection() {
   if (sfConn && sfConnectedAt && (Date.now() - sfConnectedAt < 30 * 60 * 1000)) {
     return sfConn;
   }
-  // Normalize the login URL: force https and strip any trailing slash/path.
-  // A plain-http or trailing-slash value makes Salesforce 301-redirect the SOAP
-  // login POST into a GET, which the endpoint rejects ("405 Only POST allowed").
+  // Normalize the login URL to a valid SOAP-login origin. A wrong host/scheme
+  // makes Salesforce redirect the SOAP login POST into a GET, which the endpoint
+  // rejects ("405 Only POST allowed"). We: force https, keep only the origin
+  // (drop any path/query), and rewrite a Lightning host to its My-Domain host
+  // (…​.lightning.force.com → ….my.salesforce.com), which serves the SOAP API.
   let loginUrl = (process.env.SF_LOGIN_URL || 'https://login.salesforce.com').trim();
   if (!/^https?:\/\//i.test(loginUrl)) loginUrl = 'https://' + loginUrl;
-  loginUrl = loginUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '');
+  try {
+    const u = new URL(loginUrl);
+    u.protocol = 'https:';
+    if (/\.lightning\.force\.com$/i.test(u.hostname)) {
+      u.hostname = u.hostname.replace(/\.lightning\.force\.com$/i, '.my.salesforce.com');
+    }
+    loginUrl = u.origin; // scheme + host only, no path/slash
+  } catch (_) {
+    loginUrl = loginUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '');
+  }
+  console.log('Salesforce login URL:', loginUrl);
 
   // Note: we intentionally do NOT pass clientId/clientSecret. jsforce switches
   // conn.login() to the OAuth2 password grant when both are present, and this
