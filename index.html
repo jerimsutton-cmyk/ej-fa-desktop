@@ -1838,6 +1838,43 @@ function markTaskComplete(taskId) {
   renderGCList();
 }
 
+// Measure bridge: log the real Salesforce CRM record an outcome milestone's
+// Enablement Measure counts. This moves the measure in Salesforce; the runtime
+// engine credits the milestone on its next recompute (so completion isn't
+// instant, and we do not fake it locally).
+async function bridgeLog(taskId, bridge, btn, msgEl) {
+  if (!taskId || !btn) return;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  var labelSpan = btn.lastChild;
+  var orig = labelSpan ? labelSpan.textContent : '';
+  if (labelSpan) labelSpan.textContent = 'Logging…';
+  try {
+    var r = await fetch('/api/exercises/' + encodeURIComponent(taskId) + '/log', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    }).then(function(x) { return x.json(); });
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    if (labelSpan) labelSpan.textContent = orig;
+    if (r && r.success) {
+      window._gcBridgeCount = window._gcBridgeCount || {};
+      window._gcBridgeCount[taskId] = (window._gcBridgeCount[taskId] || 0) + 1;
+      msgEl.setAttribute('style', 'font-size:11px;color:#047857;font-weight:600;');
+      msgEl.textContent = '✓ Logged in Salesforce' +
+        (r.liveValue != null ? ' · ' + r.measure + ' now ' + r.liveValue : '') +
+        '  ·  ' + window._gcBridgeCount[taskId] + ' from here (credits on recompute)';
+    } else {
+      msgEl.setAttribute('style', 'font-size:11px;color:#c23934;');
+      msgEl.textContent = (r && r.error) || 'Could not log to Salesforce.';
+    }
+  } catch (e) {
+    btn.disabled = false; btn.style.opacity = '1';
+    if (labelSpan) labelSpan.textContent = orig;
+    msgEl.setAttribute('style', 'font-size:11px;color:#c23934;');
+    msgEl.textContent = 'Network error logging to Salesforce.';
+  }
+}
+
 async function openProgramDetail(id) {
   var panel = document.getElementById('gc-detail');
   var body = document.getElementById('gc-detail-body');
@@ -1996,9 +2033,33 @@ function renderProgramDetail() {
         statusLine = el('div', 'font-size:12px;color:#5c5c5c;', 'Due ' + gcFmtDate(tp.dueDate));
       }
 
+      var btnBlue = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:none;border-radius:6px;background:#0176D3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;';
       var actions = el('div', 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;');
-      if (t.video) {
-        var watch = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;border-radius:6px;background:#0072CE;color:#fff;font-size:11px;font-weight:600;cursor:pointer;', '');
+      if (t.bridge && t.bridge.writable) {
+        // Outcome milestone: write the real CRM record its Enablement Measure
+        // counts — moving the measure in Salesforce (engine credits on recompute).
+        var bwrap = el('div', 'display:flex;flex-direction:column;gap:5px;');
+        var brow = el('div', 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;');
+        var blog = el('button', btnBlue, '');
+        blog.appendChild(el('span', 'font-size:11px;', '⛗'));
+        blog.appendChild(el('span', '', t.bridge.verb + ' in Salesforce'));
+        var bmsg = el('span', 'font-size:11px;color:#5c5c5c;', '');
+        (function(taskId, bridge, btn, msg) {
+          blog.onclick = function(e) { e.stopPropagation(); bridgeLog(taskId, bridge, btn, msg); };
+        })(t.Id, t.bridge, blog, bmsg);
+        brow.appendChild(blog);
+        brow.appendChild(bmsg);
+        bwrap.appendChild(brow);
+        bwrap.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
+          'Counts toward "' + t.bridge.measure + '" · ' + (t.bridge.fn || '') + ' of ' + t.bridge.object +
+          (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')));
+        actions.appendChild(bwrap);
+      } else if (t.bridge) {
+        // Measure-based, but its object can't be written from here.
+        actions.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
+          'Completed in Salesforce when "' + t.bridge.measure + '" (' + (t.bridge.fn || '') + ' of ' + t.bridge.object + ') is met.'));
+      } else if (t.video) {
+        var watch = el('button', btnBlue, '');
         watch.appendChild(el('span', 'font-size:10px;', '▶'));
         watch.appendChild(el('span', '', done ? 'Re-watch video' : 'Watch video'));
         (function(v, taskId) {
@@ -2010,23 +2071,10 @@ function renderProgramDetail() {
         })(t.video, t.Id);
         actions.appendChild(watch);
       } else if (!done) {
-        // Non-video exercises: an explicit "done in the panel" action.
-        var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:11px;font-weight:600;cursor:pointer;', '✓ Mark complete');
+        // Content exercise with no measure bridge: an in-app completion action.
+        var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
         (function(taskId) { mark.onclick = function(e) { e.stopPropagation(); markTaskComplete(taskId); }; })(t.Id);
         actions.appendChild(mark);
-      }
-      // Link-out to Salesforce — the only path where the runtime engine actually
-      // records completion (in the learner's own authenticated session).
-      if (data.instanceUrl) {
-        var open = el('a', 'display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#0072CE;text-decoration:none;');
-        open.appendChild(el('span', '', 'Complete in Salesforce'));
-        open.appendChild(el('span', 'font-size:10px;', '↗'));
-        open.setAttribute('href', data.instanceUrl);
-        open.setAttribute('target', '_blank');
-        open.setAttribute('rel', 'noopener');
-        open.setAttribute('title', 'Opens the Guidance Center in Salesforce, where completing it is recorded for real.');
-        open.onclick = function(ev) { ev.stopPropagation(); };
-        actions.appendChild(open);
       }
       // Footer: app actions on the left, SF-style completion/due date on the right.
       if (actions.childNodes.length || statusLine) {

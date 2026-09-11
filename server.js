@@ -91,6 +91,81 @@ async function fetchProgramProgress(conn, me, programIds) {
   return byProgram;
 }
 
+// ── Enablement "measure bridge" ─────────────────────────────────────────────
+// Outcome milestones complete when their Enablement Measure (a SOQL aggregate
+// over a CRM object) reaches target. We can't write completion, but we CAN write
+// the CRM records the measure counts — so an action in the web app moves the real
+// measure and the runtime engine credits the milestone on its next recompute.
+//
+// For each writable CRM object we know how to create a record that contributes,
+// attributed to the enrolled learner (OwnerId). Objects not listed here can't be
+// bridged from the web app (the exercise still needs the learner in Salesforce).
+function isoDate() { return new Date().toISOString().slice(0, 10); }
+const BRIDGE_TEMPLATES = {
+  Task: {
+    verb: 'Log a call',
+    build: (me) => ({ OwnerId: me, Subject: 'Next-Gen Introductory Call', Status: 'Completed', Type: 'Call', ActivityDate: isoDate() }),
+  },
+  Event: {
+    verb: 'Log a meeting',
+    build: (me) => ({ OwnerId: me, Subject: 'Estate Plan Review', DurationInMinutes: 30, ActivityDateTime: new Date().toISOString() }),
+  },
+  Lead: {
+    verb: 'Add a prospect',
+    build: (me) => ({ OwnerId: me, LastName: 'Next-Gen Prospect', Company: 'Prospect Household', Status: 'Open - Not Contacted' }),
+  },
+  Opportunity: {
+    verb: 'Record a won deal',
+    build: (me) => ({ OwnerId: me, Name: 'Retained AUC', StageName: 'Closed Won', CloseDate: isoDate(), Amount: 1000000 }),
+  },
+};
+
+// The Enablement Measure(s) behind each exercise in a program:
+// taskId -> [{ defId, label, object, fn, field }].
+async function fetchExerciseMeasures(conn, programId) {
+  const byTask = {};
+  const rows = await conn.query(
+    `SELECT EnblProgramTaskDefinitionId, EnablementMeasureDefinitionId,
+            EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.SourceObjectApiName,
+            EnablementMeasureDefinition.AggregateFunction, EnablementMeasureDefinition.AggregateFieldApiName
+     FROM EnblProgramTaskMeasure
+     WHERE EnblProgramTaskDefinition.EnablementProgramId = '${programId}'
+     ORDER BY SequenceNumber`
+  );
+  for (const r of rows.records) {
+    const md = r.EnablementMeasureDefinition || {};
+    (byTask[r.EnblProgramTaskDefinitionId] = byTask[r.EnblProgramTaskDefinitionId] || []).push({
+      defId: r.EnablementMeasureDefinitionId,
+      label: md.MasterLabel,
+      object: md.SourceObjectApiName,
+      fn: md.AggregateFunction,
+      field: md.AggregateFieldApiName,
+    });
+  }
+  return byTask;
+}
+
+// A single measure's live value for the current user (owner-scoped where the
+// object carries an OwnerId). Mirrors /api/measures, so the web app can show the
+// value move the instant a bridge record is written.
+const OWNER_SCOPED_OBJECTS = new Set(['Opportunity', 'Task', 'Event', 'Case', 'Account', 'Lead']);
+async function measureLiveValue(conn, me, m) {
+  const obj = m.object;
+  if (!obj) return null;
+  const fn = (m.fn || '').toLowerCase();
+  const field = m.field;
+  let selectExpr;
+  if (fn === 'count' || !field) selectExpr = 'COUNT(Id) v';
+  else if (fn === 'sum') selectExpr = `SUM(${field}) v`;
+  else if (fn === 'average') selectExpr = `AVG(${field}) v`;
+  else if (fn === 'max') selectExpr = `MAX(${field}) v`;
+  else if (fn === 'min') selectExpr = `MIN(${field}) v`;
+  else selectExpr = 'COUNT(Id) v';
+  const where = OWNER_SCOPED_OBJECTS.has(obj) ? ` WHERE OwnerId = '${me}'` : '';
+  const agg = await conn.query(`SELECT ${selectExpr} FROM ${obj}${where}`);
+  return agg.records && agg.records[0] ? agg.records[0].v : null;
+}
+
 // Small wrapper so each route gets consistent error handling.
 function handler(fn) {
   return async (req, res) => {
@@ -299,20 +374,48 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
   // exercises get distinct clips) to demonstrate the launch capability.
   let videoPool = [];
   try { videoPool = await fetchPlayableVideos(conn); } catch (_) { videoPool = []; }
+
+  // Enablement Measures behind each exercise, and their current live value, so
+  // outcome milestones can be completed from the web app via the bridge.
+  let measuresByTask = {};
+  try { measuresByTask = await fetchExerciseMeasures(conn, id); } catch (_) { measuresByTask = {}; }
+  const liveCache = {};
+  async function bridgeFor(t) {
+    const ms = measuresByTask[t.Id];
+    if (!ms || !ms.length) return null;
+    const m = ms[0];
+    const tmpl = BRIDGE_TEMPLATES[m.object];
+    let liveValue = null;
+    try {
+      if (!(m.object in liveCache)) liveCache[m.object] = await measureLiveValue(conn, me, m);
+      liveValue = liveCache[m.object];
+    } catch (_) {}
+    return {
+      measure: m.label,
+      object: m.object,
+      fn: m.fn,
+      field: m.field,
+      liveValue,
+      writable: Boolean(tmpl),
+      verb: tmpl ? tmpl.verb : null,
+    };
+  }
+
   let vIdx = 0;
-  const tasks = taskResult.records.map((t) => {
-    const withProgress = { ...t, progress: progByTask[t.Id] || null };
-    if (!isVideoExercise(t)) return withProgress;
-    if (EXERCISE_CONTENT_URLS[t.Id]) {
-      return { ...withProgress, video: videoFromUrl(EXERCISE_CONTENT_URLS[t.Id], t.Name) };
+  const tasks = await Promise.all(taskResult.records.map(async (t) => {
+    let out = { ...t, progress: progByTask[t.Id] || null };
+    const bridge = await bridgeFor(t);
+    if (bridge) out = { ...out, bridge };
+    if (isVideoExercise(t)) {
+      if (EXERCISE_CONTENT_URLS[t.Id]) {
+        out = { ...out, video: videoFromUrl(EXERCISE_CONTENT_URLS[t.Id], t.Name) };
+      } else if (videoPool.length) {
+        out = { ...out, video: videoPool[vIdx % videoPool.length] };
+        vIdx += 1;
+      }
     }
-    if (videoPool.length) {
-      const video = videoPool[vIdx % videoPool.length];
-      vIdx += 1;
-      return { ...withProgress, video };
-    }
-    return withProgress;
-  });
+    return out;
+  }));
 
   // Group tasks (exercises) under their section (milestone).
   const tasksBySection = {};
@@ -535,6 +638,58 @@ app.patch('/api/records/:object/:id', handler(async (conn, req, res) => {
     return res.status(400).json({ error: 'Update failed', details: result.errors });
   }
   res.json({ success: true, id: result.id });
+}));
+
+// ── BRIDGE: log a real CRM record that contributes to an exercise's measure ──
+// This is the only supported way to advance Enablement completion from outside
+// Salesforce: we create the record the exercise's Enablement Measure counts,
+// owned by the enrolled learner. The runtime engine credits the milestone on its
+// next measure recompute (not instant). We do NOT (cannot) write completion.
+app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
+  const { taskId } = req.params;
+  if (!/^[a-zA-Z0-9]{15,18}$/.test(taskId)) {
+    return res.status(400).json({ error: 'Invalid exercise Id.' });
+  }
+  const me = await getMyUserId(conn);
+
+  // Resolve the exercise's Enablement Measure -> the CRM object it counts.
+  const rows = await conn.query(
+    `SELECT EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.SourceObjectApiName,
+            EnablementMeasureDefinition.AggregateFunction, EnablementMeasureDefinition.AggregateFieldApiName
+     FROM EnblProgramTaskMeasure
+     WHERE EnblProgramTaskDefinitionId = '${taskId}'
+     ORDER BY SequenceNumber LIMIT 1`
+  );
+  if (!rows.records.length) {
+    return res.status(400).json({ error: 'This exercise is not measure-based, so it cannot be completed from here. It must be done in Salesforce.' });
+  }
+  const md = rows.records[0].EnablementMeasureDefinition || {};
+  const object = md.SourceObjectApiName;
+  const tmpl = BRIDGE_TEMPLATES[object];
+  if (!tmpl) {
+    return res.status(422).json({ error: `The measure behind this exercise counts ${object || 'an object'}, which the web app can't create. Complete it in Salesforce.`, object });
+  }
+
+  const record = tmpl.build(me);
+  const result = await conn.sobject(object).create(record);
+  if (!result.success) {
+    return res.status(400).json({ error: 'Could not create the Salesforce record.', details: result.errors });
+  }
+
+  // Report the new live measure value so the UI can reflect the movement.
+  let liveValue = null;
+  try {
+    liveValue = await measureLiveValue(conn, me, { object, fn: md.AggregateFunction, field: md.AggregateFieldApiName });
+  } catch (_) {}
+
+  res.json({
+    success: true,
+    recordId: result.id,
+    object,
+    measure: md.MasterLabel,
+    liveValue,
+    note: 'Salesforce Enablement credits the milestone on its next measure recompute.',
+  });
 }));
 
 // ── Serve the front end for all other routes ─────────────────────────────────
