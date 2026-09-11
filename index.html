@@ -1843,35 +1843,34 @@ function markTaskComplete(taskId) {
 // engine credits the milestone on its next recompute (so completion isn't
 // instant, and we do not fake it locally).
 async function bridgeLog(taskId, bridge, btn, msgEl) {
-  if (!taskId || !btn) return;
-  btn.disabled = true;
-  btn.style.opacity = '0.6';
-  var labelSpan = btn.lastChild;
+  if (!taskId) return false;
+  var labelSpan = btn ? btn.lastChild : null;
   var orig = labelSpan ? labelSpan.textContent : '';
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
   if (labelSpan) labelSpan.textContent = 'Logging…';
+  function setMsg(style, text) { if (msgEl) { msgEl.setAttribute('style', style); msgEl.textContent = text; } }
   try {
     var r = await fetch('/api/exercises/' + encodeURIComponent(taskId) + '/log', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
     }).then(function(x) { return x.json(); });
-    btn.disabled = false;
-    btn.style.opacity = '1';
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     if (labelSpan) labelSpan.textContent = orig;
     if (r && r.success) {
       window._gcBridgeCount = window._gcBridgeCount || {};
       window._gcBridgeCount[taskId] = (window._gcBridgeCount[taskId] || 0) + 1;
-      msgEl.setAttribute('style', 'font-size:11px;color:#047857;font-weight:600;');
-      msgEl.textContent = '✓ Logged in Salesforce' +
+      setMsg('font-size:11px;color:#047857;font-weight:600;',
+        '✓ Logged in Salesforce' +
         (r.liveValue != null ? ' · ' + r.measure + ' now ' + r.liveValue : '') +
-        '  ·  ' + window._gcBridgeCount[taskId] + ' from here (credits on recompute)';
-    } else {
-      msgEl.setAttribute('style', 'font-size:11px;color:#c23934;');
-      msgEl.textContent = (r && r.error) || 'Could not log to Salesforce.';
+        '  ·  ' + window._gcBridgeCount[taskId] + ' from here (credits on recompute)');
+      return true;
     }
+    setMsg('font-size:11px;color:#c23934;', (r && r.error) || 'Could not log to Salesforce.');
+    return false;
   } catch (e) {
-    btn.disabled = false; btn.style.opacity = '1';
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     if (labelSpan) labelSpan.textContent = orig;
-    msgEl.setAttribute('style', 'font-size:11px;color:#c23934;');
-    msgEl.textContent = 'Network error logging to Salesforce.';
+    setMsg('font-size:11px;color:#c23934;', 'Network error logging to Salesforce.');
+    return false;
   }
 }
 
@@ -2035,7 +2034,39 @@ function renderProgramDetail() {
 
       var btnBlue = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:none;border-radius:6px;background:#0176D3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;';
       var actions = el('div', 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;');
-      if (t.bridge && t.bridge.writable) {
+      if (t.video) {
+        // Launchable content (video plays inline; other URLs open in a new tab).
+        // Viewing it completes the milestone: if it's an outcome milestone bridged
+        // to a measure, that writes the backing record in Salesforce too.
+        var isLink = t.video.Type === 'Link';
+        var vwrap = el('div', 'display:flex;flex-direction:column;gap:5px;');
+        var vrow = el('div', 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;');
+        var watch = el('button', btnBlue, '');
+        watch.appendChild(el('span', 'font-size:10px;', isLink ? '🔗' : '▶'));
+        watch.appendChild(el('span', '', isLink ? (done ? 'Open again' : 'Launch content') : (done ? 'Re-watch' : 'Watch video')));
+        var vmsg = el('span', 'font-size:11px;color:#5c5c5c;', '');
+        (function(v, taskId, bridge, btn, msg) {
+          var onDone = async function() {
+            var ok = true;
+            if (bridge && bridge.writable && bridge.content) ok = await bridgeLog(taskId, bridge, null, msg);
+            if (ok) markTaskComplete(taskId);
+          };
+          btn.onclick = function(e) {
+            e.stopPropagation();
+            if (isLink) { window.open(v.ContentUrl || v.Url, '_blank', 'noopener'); onDone(); }
+            else { openVideoModal(v, onDone); }
+          };
+        })(t.video, t.Id, t.bridge, watch, vmsg);
+        vrow.appendChild(watch);
+        vrow.appendChild(vmsg);
+        vwrap.appendChild(vrow);
+        if (t.bridge && t.bridge.writable && t.bridge.content) {
+          vwrap.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
+            'Marks "' + t.bridge.measure + '" complete in Salesforce when viewed' +
+            (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')));
+        }
+        actions.appendChild(vwrap);
+      } else if (t.bridge && t.bridge.writable) {
         // Outcome milestone: write the real CRM record its Enablement Measure
         // counts — moving the measure in Salesforce (engine credits on recompute).
         var bwrap = el('div', 'display:flex;flex-direction:column;gap:5px;');
@@ -2045,7 +2076,10 @@ function renderProgramDetail() {
         blog.appendChild(el('span', '', t.bridge.verb + ' in Salesforce'));
         var bmsg = el('span', 'font-size:11px;color:#5c5c5c;', '');
         (function(taskId, bridge, btn, msg) {
-          blog.onclick = function(e) { e.stopPropagation(); bridgeLog(taskId, bridge, btn, msg); };
+          blog.onclick = function(e) {
+            e.stopPropagation();
+            bridgeLog(taskId, bridge, btn, msg).then(function(ok) { if (ok && bridge.content) markTaskComplete(taskId); });
+          };
         })(t.Id, t.bridge, blog, bmsg);
         brow.appendChild(blog);
         brow.appendChild(bmsg);
@@ -2058,18 +2092,6 @@ function renderProgramDetail() {
         // Measure-based, but its object can't be written from here.
         actions.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
           'Completed in Salesforce when "' + t.bridge.measure + '" (' + (t.bridge.fn || '') + ' of ' + t.bridge.object + ') is met.'));
-      } else if (t.video) {
-        var watch = el('button', btnBlue, '');
-        watch.appendChild(el('span', 'font-size:10px;', '▶'));
-        watch.appendChild(el('span', '', done ? 'Re-watch video' : 'Watch video'));
-        (function(v, taskId) {
-          watch.onclick = function(e) {
-            e.stopPropagation();
-            // Watching the video (to the end, or via "Mark complete") completes it.
-            openVideoModal(v, function() { markTaskComplete(taskId); });
-          };
-        })(t.video, t.Id);
-        actions.appendChild(watch);
       } else if (!done) {
         // Content exercise with no measure bridge: an in-app completion action.
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');

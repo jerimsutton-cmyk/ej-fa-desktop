@@ -423,6 +423,7 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
       liveValue,
       writable: Boolean(content) || Boolean(tmpl),
       verb: content ? content.verb : (tmpl ? tmpl.verb : null),
+      content: Boolean(content),
     };
   }
 
@@ -431,7 +432,13 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
     let out = { ...t, progress: progByTask[t.Id] || null };
     const bridge = await bridgeFor(t);
     if (bridge) out = { ...out, bridge };
-    if (isVideoExercise(t)) {
+    // A URL authored into the description (any task) becomes launchable content;
+    // the URL line is stripped from the displayed description. Falls back to a
+    // mapped content URL or the video catalog for tagged video exercises.
+    const descUrl = urlFromDescription(t.Description);
+    if (descUrl) {
+      out = { ...out, video: videoFromUrl(descUrl, t.Name), Description: cleanDescription(t.Description) };
+    } else if (isVideoExercise(t)) {
       if (EXERCISE_CONTENT_URLS[t.Id]) {
         out = { ...out, video: videoFromUrl(EXERCISE_CONTENT_URLS[t.Id], t.Name) };
       } else if (videoPool.length) {
@@ -574,6 +581,20 @@ function videoFromUrl(url, title) {
                  : (vy ? `https://play.vidyard.com/${vy}.html?disable_popouts=1&type=inline&autoplay=1` : null),
     thumbUrl: yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null,
   };
+}
+
+// Pull the first http(s) URL out of a task description (authored by a program
+// builder to attach launchable content), and remove that URL — with an optional
+// leading "Label:" (e.g. "Video:") — from the description shown to the learner.
+function urlFromDescription(desc) {
+  const m = String(desc || '').match(/https?:\/\/[^\s"'<>]+/);
+  return m ? m[0] : null;
+}
+function cleanDescription(desc) {
+  return String(desc || '')
+    .replace(/\s*(?:[A-Za-z][\w ]*:\s*)?https?:\/\/[^\s"'<>]+/, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 app.get('/api/videos', handler(async (conn, req, res) => {
