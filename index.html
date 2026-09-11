@@ -41,7 +41,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 .mgc-ms-title{font-weight:600;font-size:13px;color:#111827;}
 .mgc-ms-body{padding-left:22px;margin-top:6px;}
 .mgc-exercise{display:flex;gap:10px;align-items:flex-start;padding:8px 0;}
-.right-panel{width:320px;background:white;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;min-height:0;position:relative;}
+.right-panel{width:344px;background:white;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;min-height:0;position:relative;}
 .panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
 .panel-tab{flex:1;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-bottom:2px solid transparent;}
 .panel-tab:hover{background:#f9fafb;}
@@ -925,7 +925,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 </div>
 </div>
 </div><!-- Persistent Right Panel -->
-<div class="right-panel" style="width:320px;min-width:320px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column;height:100%;overflow:hidden;min-height:0;">
+<div class="right-panel" style="width:344px;min-width:344px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column;height:100%;overflow:hidden;min-height:0;">
 <div class="panel-tabs" style="display:flex;border-bottom:1px solid #e5e7eb;padding:4px 8px;gap:2px;">
 <div class="panel-tab" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Edit">
 <svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -1025,7 +1025,8 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
       <div style="font-weight:600;font-size:13px;color:#111827;">EJ Enablement Programs</div>
       <span style="font-size:11px;color:#0072CE;cursor:pointer;">View More</span>
     </div>
-    <div id="gc-list-body" style="flex:1;overflow-y:auto;padding:8px;">
+    <div id="gc-list-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;">
+    <div id="gc-list-programs" style="flex:1;overflow-y:auto;padding:8px;min-height:0;">
       <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Selected for You</div>
       <!-- Program 1: Generational Wealth -->
       <div style="padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;" onclick="">
@@ -1062,6 +1063,8 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
           <span style="font-size:11px;color:#6b7280;">~30 days</span>
         </div>
       </div>
+    </div><!-- end gc-list-programs -->
+    <div id="gc-list-measures" style="flex-shrink:0;max-height:40%;overflow-y:auto;padding:8px;border-top:1px solid #e5e7eb;background:#fafafa;"></div>
     </div>
   </div>
 
@@ -1860,8 +1863,9 @@ async function loadGuidanceCenter() {
 // per-program local-completion override (window._gcPctOverride) bumps a card's
 // percent/status when exercises are completed in the panel.
 function renderGCList() {
-  var body = document.getElementById('gc-list-body');
-  if (!body) return;
+  var progBody = document.getElementById('gc-list-programs');
+  var measBody = document.getElementById('gc-list-measures');
+  if (!progBody || !measBody) return;
   var programs = window._gcProgramList || [];
   var measures = window._gcMeasureList || [];
   var override = window._gcPctOverride || {};
@@ -1910,8 +1914,13 @@ function renderGCList() {
     nodes.push(el('div', 'font-size:11px;color:#6b7280;padding:8px;', 'You are not enrolled in any programs.'));
   }
 
-  // Measures section
-  nodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;', 'Your Measures'));
+  // Programs render into their own scrollable region (top of the panel).
+  progBody.replaceChildren.apply(progBody, nodes);
+
+  // Measures section — rendered into its own scrollable region pinned at the
+  // bottom of the panel, so it scrolls independently of the programs list.
+  var mNodes = [];
+  mNodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:2px 0 6px;', 'Your Measures'));
   var mCard = el('div', 'padding:6px 10px;border-radius:8px;background:#fff;border:1px solid #e5e7eb;');
   measures.forEach(function(m, i) {
     var row = el('div', 'display:flex;align-items:center;justify-content:space-between;padding:7px 0;cursor:pointer;' + (i < measures.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''));
@@ -1926,9 +1935,9 @@ function renderGCList() {
     row.appendChild(valWrap);
     mCard.appendChild(row);
   });
-  nodes.push(mCard);
+  mNodes.push(mCard);
 
-  body.replaceChildren.apply(body, nodes);
+  measBody.replaceChildren.apply(measBody, mNodes);
 }
 
 // ── Guidance Center drill-down: program detail (milestones & exercises) ──────
