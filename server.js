@@ -24,12 +24,19 @@ async function getSFConnection() {
   if (sfConn && sfConnectedAt && (Date.now() - sfConnectedAt < 30 * 60 * 1000)) {
     return sfConn;
   }
+  // Normalize the login URL: force https and strip any trailing slash/path.
+  // A plain-http or trailing-slash value makes Salesforce 301-redirect the SOAP
+  // login POST into a GET, which the endpoint rejects ("405 Only POST allowed").
+  let loginUrl = (process.env.SF_LOGIN_URL || 'https://login.salesforce.com').trim();
+  if (!/^https?:\/\//i.test(loginUrl)) loginUrl = 'https://' + loginUrl;
+  loginUrl = loginUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '');
+
   // Note: we intentionally do NOT pass clientId/clientSecret. jsforce switches
   // conn.login() to the OAuth2 password grant when both are present, and this
   // org does not permit that grant ("grant type not supported"). Omitting them
   // forces plain SOAP username/password login, which the org does allow.
   const conn = new jsforce.Connection({
-    loginUrl: process.env.SF_LOGIN_URL || 'https://login.salesforce.com',
+    loginUrl: loginUrl,
     version: SF_API_VERSION,
   });
   // Password may need the security token appended if logging in from an
