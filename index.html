@@ -565,6 +565,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
       <thead>
         <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+          <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Log Call</th>
           <th style="padding:8px 10px;"><input type="checkbox"></th>
           <th style="padding:8px 6px;color:#6b7280;font-weight:500;text-align:left;">#</th>
           <th style="padding:8px 12px;text-align:left;color:#374151;font-weight:600;white-space:nowrap;">Reference</th>
@@ -1085,6 +1086,56 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
       <div id="video-modal-stage" style="position:relative;width:100%;aspect-ratio:16/9;background:#000;"></div>
       <div id="video-modal-desc" style="color:#cbd5e1;font-size:12px;line-height:1.5;padding:10px 14px 0;flex-shrink:0;"></div>
       <div id="video-modal-footer" style="display:none;align-items:center;gap:10px;padding:10px 14px 14px;flex-shrink:0;"></div>
+    </div>
+  </div>
+
+  <!-- Log a Call modal (opened from the Actionable List "Log call" button) -->
+  <div id="lc-modal" onclick="if(event.target===this)closeLogCall()" style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:24px;">
+    <div style="background:#fff;border-radius:12px;width:min(520px,94vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+        <span style="flex:1;font-size:15px;font-weight:700;color:#111827;">📞 Log a Call</span>
+        <button onclick="closeLogCall()" title="Close" style="background:none;border:none;color:#6b7280;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+      </div>
+      <div style="padding:16px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+        <div style="font-size:12px;color:#6b7280;">Related to <span id="lc-contact-name" style="color:#0176D3;font-weight:600;"></span></div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Subject</label>
+          <select id="lc-subject" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;background:#fff;"></select>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Call Type</label>
+            <select id="lc-calltype" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;background:#fff;"></select>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Priority</label>
+            <select id="lc-priority" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;background:#fff;"></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Call Result</label>
+            <input id="lc-result" type="text" placeholder="e.g. Reached, Left voicemail" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="width:110px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Duration (min)</label>
+            <input id="lc-duration" type="number" min="0" step="1" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Date</label>
+          <input id="lc-date" type="date" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Comments / Call Notes</label>
+          <textarea id="lc-notes" rows="4" placeholder="What was discussed, next steps…" style="width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+        </div>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-shrink:0;">
+        <span id="lc-msg" style="flex:1;font-size:12px;color:#5c5c5c;"></span>
+        <button onclick="closeLogCall()" style="padding:7px 14px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+        <button id="lc-save" onclick="saveLogCall()" style="padding:7px 16px;border:none;border-radius:6px;background:#0176D3;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save</button>
+      </div>
     </div>
   </div>
 
@@ -1678,12 +1729,22 @@ function alCell(text) {
 function alRowMsg(text) {
   var tr = el('tr', '');
   var td = el('td', 'padding:16px;color:#6b7280;font-size:12px;text-align:center;', text);
-  td.setAttribute('colspan', '12');
+  td.setAttribute('colspan', '13');
   tr.appendChild(td);
   return tr;
 }
 function alMemberRow(m, i) {
   var tr = el('tr', 'border-bottom:1px solid #f3f4f6;background:' + (i % 2 === 0 ? 'white' : '#fafafa') + ';');
+  // Far-left "Log call" action → completed Call task in Salesforce for this member.
+  var lcTd = el('td', 'padding:6px 12px;white-space:nowrap;');
+  var lcBtn = el('button', 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #0176D3;border-radius:6px;background:#fff;color:#0176D3;font-size:11px;font-weight:600;cursor:pointer;', '');
+  lcBtn.appendChild(el('span', 'font-size:11px;', '📞'));
+  lcBtn.appendChild(el('span', '', 'Log call'));
+  (function(contactId, accountId, name) {
+    lcBtn.onclick = function(e) { e.stopPropagation(); openLogCall(contactId, accountId, name); };
+  })(m.contactId, m.accountId, m.reference);
+  lcTd.appendChild(lcBtn);
+  tr.appendChild(lcTd);
   var cbTd = el('td', 'padding:8px 10px;');
   var cb = el('input'); cb.type = 'checkbox'; cbTd.appendChild(cb);
   tr.appendChild(cbTd);
@@ -1703,6 +1764,73 @@ function alMemberRow(m, i) {
   tr.appendChild(alCell(m.walletShare != null ? m.walletShare + '%' : ''));
   tr.appendChild(alCell(alMoney(m.assets)));
   return tr;
+}
+
+// ── Log a Call modal ─────────────────────────────────────────────────────────
+// Surfaces Salesforce call fields (picklists loaded from the org) and writes a
+// completed Call task related to the member's Contact/Account.
+function lcVal(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+function lcFillSelect(id, values, def, allowBlank) {
+  var sel = document.getElementById(id);
+  if (!sel) return;
+  var opts = [];
+  if (allowBlank) { var b = el('option', '', '—'); b.value = ''; opts.push(b); }
+  (values || []).forEach(function(v) {
+    var o = el('option', '', v); o.value = v;
+    if (v === def) o.selected = true;
+    opts.push(o);
+  });
+  sel.replaceChildren.apply(sel, opts);
+}
+async function loadCallFields() {
+  if (window._lcFields) return window._lcFields;
+  var f = null;
+  try { f = await fetch('/api/task-call-fields').then(function(r){ return r.json(); }); } catch (e) {}
+  if (!f || f.error) f = null;
+  window._lcFields = f || { subject: ['Call'], callType: ['Outbound','Inbound','Internal'], priority: ['High','Normal','Medium','Low'] };
+  lcFillSelect('lc-subject', window._lcFields.subject && window._lcFields.subject.length ? window._lcFields.subject : ['Call'], 'Call');
+  lcFillSelect('lc-calltype', window._lcFields.callType && window._lcFields.callType.length ? window._lcFields.callType : ['Outbound','Inbound','Internal'], 'Outbound', true);
+  lcFillSelect('lc-priority', window._lcFields.priority && window._lcFields.priority.length ? window._lcFields.priority : ['Normal'], 'Normal');
+  return window._lcFields;
+}
+function openLogCall(contactId, accountId, name) {
+  window._lcTarget = { contactId: contactId || null, accountId: accountId || null, name: name || '' };
+  var nm = document.getElementById('lc-contact-name'); if (nm) nm.textContent = name || 'this client';
+  var dt = document.getElementById('lc-date'); if (dt) dt.value = new Date().toISOString().slice(0, 10);
+  ['lc-notes', 'lc-result', 'lc-duration'].forEach(function(id){ var e = document.getElementById(id); if (e) e.value = ''; });
+  var msg = document.getElementById('lc-msg'); if (msg) { msg.textContent = ''; msg.style.color = '#5c5c5c'; }
+  loadCallFields();
+  var modal = document.getElementById('lc-modal'); if (modal) modal.style.display = 'flex';
+}
+function closeLogCall() {
+  var modal = document.getElementById('lc-modal'); if (modal) modal.style.display = 'none';
+}
+async function saveLogCall() {
+  var t = window._lcTarget || {};
+  var btn = document.getElementById('lc-save');
+  var msg = document.getElementById('lc-msg');
+  var payload = {
+    contactId: t.contactId, accountId: t.accountId,
+    subject: lcVal('lc-subject'), callType: lcVal('lc-calltype'), priority: lcVal('lc-priority'),
+    callDisposition: lcVal('lc-result'), callDurationMinutes: lcVal('lc-duration'),
+    activityDate: lcVal('lc-date'), description: lcVal('lc-notes')
+  };
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (msg) { msg.style.color = '#5c5c5c'; msg.textContent = ''; }
+  try {
+    var r = await fetch('/api/log-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    var d = await r.json();
+    if (r.ok && d.success) {
+      if (msg) { msg.style.color = '#047857'; msg.textContent = '✓ Call logged in Salesforce'; }
+      setTimeout(closeLogCall, 900);
+    } else if (msg) {
+      msg.style.color = '#c23934'; msg.textContent = (d && d.error) || 'Could not log the call';
+    }
+  } catch (e) {
+    if (msg) { msg.style.color = '#c23934'; msg.textContent = 'Network error — call not logged'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
 }
 
 // ── Guidance Center: enrolled programs + live measures ───────────────────────

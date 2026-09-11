@@ -289,7 +289,7 @@ app.get('/api/actionable-lists/:id/members', handler(async (conn, req, res) => {
   const result = await conn.query(
     `SELECT Id, Name, RecordStatus, AssignmentStatus, Owner.Name,
             TYPEOF ReferenceRecord
-              WHEN Account THEN Name, PersonEmail, PersonTitle, PersonBirthdate, Phone,
+              WHEN Account THEN Name, PersonContactId, PersonEmail, PersonTitle, PersonBirthdate, Phone,
                    FinServ__WalletShare__c, FinServ__AnnualIncome__pc, FINS_Assets__c, FinServ__NetWorth__c
               ELSE Name
             END
@@ -301,10 +301,13 @@ app.get('/api/actionable-lists/:id/members', handler(async (conn, req, res) => {
   res.json(result.records.map(m => {
     const ref = m.ReferenceRecord || {};
     const assets = ref.FINS_Assets__c != null ? ref.FINS_Assets__c : ref.FinServ__NetWorth__c;
+    const accountId = (ref.attributes && ref.attributes.url) ? ref.attributes.url.split('/').pop() : null;
     return {
       id: m.Id,
       reference: ref.Name || m.Name,
-      recordId: (ref.attributes && ref.attributes.url) ? ref.attributes.url.split('/').pop() : null,
+      recordId: accountId,
+      accountId: accountId,
+      contactId: ref.PersonContactId || null,
       status: m.RecordStatus || m.AssignmentStatus || '',
       assignee: m.Owner ? m.Owner.Name : '',
       email: ref.PersonEmail || '',
@@ -315,6 +318,57 @@ app.get('/api/actionable-lists/:id/members', handler(async (conn, req, res) => {
       assets: assets != null ? assets : null
     };
   }));
+}));
+
+// Task field metadata used by the "Log a call" modal, straight from the org so
+// the picklists reflect the real Salesforce configuration.
+app.get('/api/task-call-fields', handler(async (conn, req, res) => {
+  const d = await conn.describe('Task');
+  const opts = (name) => {
+    const f = d.fields.find(x => x.name === name);
+    return f && f.picklistValues ? f.picklistValues.filter(p => p.active).map(p => p.value) : [];
+  };
+  res.json({
+    subject: opts('Subject'),
+    callType: opts('CallType'),
+    priority: opts('Priority'),
+    status: opts('Status')
+  });
+}));
+
+// ── WRITE: log a completed Call task against an actionable-list member ────────
+// Creates a Salesforce Task (Type/Subtype = Call, Status = Completed) related to
+// the member's person Contact (WhoId) and Account (WhatId), owned by the caller.
+app.post('/api/log-call', handler(async (conn, req, res) => {
+  const b = req.body || {};
+  const isId = (v) => typeof v === 'string' && /^[a-zA-Z0-9]{15,18}$/.test(v);
+  if (!isId(b.contactId) && !isId(b.accountId)) {
+    return res.status(400).json({ error: 'A related contactId or accountId is required.' });
+  }
+  const me = await getMyUserId(conn);
+  const task = {
+    OwnerId: me,
+    Subject: (b.subject && String(b.subject).trim()) || 'Call',
+    Type: 'Call',
+    TaskSubtype: 'Call',
+    Status: 'Completed',
+    ActivityDate: b.activityDate || isoDate(),
+    Description: b.description ? String(b.description) : null
+  };
+  if (isId(b.contactId)) task.WhoId = b.contactId;
+  if (isId(b.accountId)) task.WhatId = b.accountId;
+  if (b.callType) task.CallType = b.callType;
+  if (b.priority) task.Priority = b.priority;
+  if (b.callDisposition) task.CallDisposition = String(b.callDisposition);
+  if (b.callDurationMinutes != null && b.callDurationMinutes !== '') {
+    const mins = Number(b.callDurationMinutes);
+    if (!isNaN(mins) && mins >= 0) task.CallDurationInSeconds = Math.round(mins * 60);
+  }
+  const result = await conn.sobject('Task').create(task);
+  if (!result.success) {
+    return res.status(400).json({ error: 'Log call failed', details: result.errors });
+  }
+  res.json({ success: true, id: result.id });
 }));
 
 // ── READ: Enablement Programs the current user is ENROLLED in ────────────────
