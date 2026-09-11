@@ -220,9 +220,26 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
      ORDER BY EnblProgramSectionId, SequenceNumber`
   );
 
+  // Attach launchable video content to the program's video exercises. The
+  // Enablement objects don't expose a per-exercise content URL via the API, so
+  // for the demo we surface real videos from the Product_Video__c catalog and
+  // link them to the exercises whose content is meant to be watched. Videos are
+  // assigned round-robin so multiple video exercises get distinct clips.
+  let videoPool = [];
+  try { videoPool = await fetchPlayableVideos(conn); } catch (_) { videoPool = []; }
+  let vIdx = 0;
+  const tasks = taskResult.records.map((t) => {
+    if (videoPool.length && isVideoExercise(t)) {
+      const video = videoPool[vIdx % videoPool.length];
+      vIdx += 1;
+      return { ...t, video };
+    }
+    return t;
+  });
+
   // Group tasks (exercises) under their section (milestone).
   const tasksBySection = {};
-  for (const t of taskResult.records) {
+  for (const t of tasks) {
     (tasksBySection[t.EnblProgramSectionId] = tasksBySection[t.EnblProgramSectionId] || []).push(t);
   }
   const sections = sectionResult.records.map((s) => ({
@@ -233,6 +250,66 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
   }));
 
   res.json({ program, sections, taskCount: taskResult.records.length });
+}));
+
+// ── Video content (Product_Video__c) ────────────────────────────────────────
+// The org stores launchable video content on Product_Video__c: a YouTube video
+// id or an MP4 URI, with a title/type. We normalize each into a small shape the
+// front end can play directly (embedUrl for YouTube, url for MP4) in a modal.
+function normalizeVideo(v) {
+  const type = v.Type__c || (v.YouTube_Video_Id__c ? 'YouTube' : 'MP4');
+  const yt = v.YouTube_Video_Id__c || null;
+  const uri = v.Video_URI__c || null;
+  return {
+    Id: v.Id,
+    Title: v.Title__c || v.Name || 'Video',
+    Type: type,
+    YouTubeId: yt,
+    Url: uri,
+    Description: v.Description__c || null,
+    embedUrl: yt ? `https://www.youtube.com/embed/${yt}` : null,
+    thumbUrl: yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null,
+  };
+}
+
+// A video is "playable" only if it actually has a source we can render.
+function isPlayableVideo(v) {
+  return Boolean(v.YouTubeId || v.Url);
+}
+
+// Fetch active, playable videos from the catalog (used both for the catalog
+// endpoint and to attach demo content to video-type program exercises).
+async function fetchPlayableVideos(conn, limit) {
+  const result = await conn.query(
+    `SELECT Id, Name, Title__c, Type__c, YouTube_Video_Id__c, Video_URI__c, Description__c
+     FROM Product_Video__c
+     WHERE Active__c = true
+     ORDER BY Sequence__c NULLS LAST, Title__c
+     ${limit ? 'LIMIT ' + limit : ''}`
+  );
+  // Dedupe by playable source so distinct videos surface (the catalog has many
+  // duplicate rows pointing at the same YouTube id / URL).
+  const seen = new Set();
+  const out = [];
+  for (const v of result.records.map(normalizeVideo)) {
+    if (!isPlayableVideo(v)) continue;
+    const key = v.YouTubeId || v.Url;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+}
+
+// A program exercise is a "video" exercise if its content is meant to be watched.
+function isVideoExercise(task) {
+  const name = (task.Name || '').toLowerCase();
+  const desc = (task.Description || '').toLowerCase();
+  return /\bvideo\b|\bwatch\b/.test(name) || /\bvideo\b/.test(desc);
+}
+
+app.get('/api/videos', handler(async (conn, req, res) => {
+  res.json(await fetchPlayableVideos(conn));
 }));
 
 // ── READ: Enablement Measures (with a live, owner-scoped value) ──────────────
