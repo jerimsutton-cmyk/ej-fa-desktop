@@ -2066,32 +2066,14 @@ function renderProgramDetail() {
             (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')));
         }
         actions.appendChild(vwrap);
-      } else if (t.bridge && t.bridge.writable) {
-        // Outcome milestone: write the real CRM record its Enablement Measure
-        // counts — moving the measure in Salesforce (engine credits on recompute).
-        var bwrap = el('div', 'display:flex;flex-direction:column;gap:5px;');
-        var brow = el('div', 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;');
-        var blog = el('button', btnBlue, '');
-        blog.appendChild(el('span', 'font-size:11px;', '⛗'));
-        blog.appendChild(el('span', '', t.bridge.verb + ' in Salesforce'));
-        var bmsg = el('span', 'font-size:11px;color:#5c5c5c;', '');
-        (function(taskId, bridge, btn, msg) {
-          blog.onclick = function(e) {
-            e.stopPropagation();
-            bridgeLog(taskId, bridge, btn, msg).then(function(ok) { if (ok && bridge.content) markTaskComplete(taskId); });
-          };
-        })(t.Id, t.bridge, blog, bmsg);
-        brow.appendChild(blog);
-        brow.appendChild(bmsg);
-        bwrap.appendChild(brow);
-        bwrap.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
-          'Counts toward "' + t.bridge.measure + '" · ' + (t.bridge.fn || '') + ' of ' + t.bridge.object +
-          (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')));
-        actions.appendChild(bwrap);
       } else if (t.bridge) {
-        // Measure-based, but its object can't be written from here.
-        actions.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
-          'Completed in Salesforce when "' + t.bridge.measure + '" (' + (t.bridge.fn || '') + ' of ' + t.bridge.object + ') is met.'));
+        // Measure-based milestone: shown for context only. Completion is driven by
+        // the underlying Enablement Measure — no manual Salesforce action here.
+        var noteText = t.bridge.writable
+          ? 'Counts toward "' + t.bridge.measure + '" · ' + (t.bridge.fn || '') + ' of ' + t.bridge.object +
+            (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')
+          : 'Completed in Salesforce when "' + t.bridge.measure + '" (' + (t.bridge.fn || '') + ' of ' + t.bridge.object + ') is met.';
+        actions.appendChild(el('div', 'font-size:11px;color:#5c5c5c;', noteText));
       } else if (!done) {
         // Content exercise with no measure bridge: an in-app completion action.
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
