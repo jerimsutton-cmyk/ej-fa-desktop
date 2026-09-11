@@ -1682,16 +1682,16 @@ async function loadGuidanceCenter() {
       card.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin-bottom:6px;', desc));
     }
 
-    var completed = (p.MyEnrollmentStatus === 'Succeeded');
-    var pct = completed ? 100 : 0;   // learner view: reflect the user's own status, not org-wide completion
+    // Real learner progress from Salesforce (LearningItemProgress).
+    var sm = gcStatusMeta(p.MyProgressStatus || p.MyEnrollmentStatus);
+    var pct = (p.MyProgressPercent != null) ? Math.round(p.MyProgressPercent) : (sm.label === 'Completed' ? 100 : 0);
     var metaRow = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;');
-    metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : (p.Type || 'Enablement program'))));
-    var badgeColor = completed ? '#047857' : '#b45309';
-    metaRow.appendChild(el('span', 'font-size:11px;font-weight:600;color:' + badgeColor + ';', completed ? 'Completed' : (p.MyEnrollmentStatus || p.Status)));
+    metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : (p.Type || 'Enablement program')) + ' · ' + pct + '%'));
+    metaRow.appendChild(el('span', 'font-size:11px;font-weight:600;color:' + sm.color + ';', sm.label));
     card.appendChild(metaRow);
 
     var bar = el('div', 'background:#e5e7eb;border-radius:4px;height:6px;overflow:hidden;');
-    bar.appendChild(el('div', 'background:#0072CE;height:100%;width:' + pct + '%;border-radius:4px;'));
+    bar.appendChild(el('div', 'background:' + sm.color + ';height:100%;width:' + pct + '%;border-radius:4px;'));
     card.appendChild(bar);
     nodes.push(card);
   });
@@ -1725,8 +1725,24 @@ async function loadGuidanceCenter() {
 function gcTaskMeta(sub) {
   if (sub === 'ActionItem') return { label: 'Action Item', color: '#1a5fa8' };
   if (sub === 'Document') return { label: 'Document', color: '#2E844A' };
+  if (sub === 'Video') return { label: 'Video', color: '#c0392b' };
+  if (sub === 'TextLesson') return { label: 'Lesson', color: '#0072CE' };
   if (sub === 'OtherExercise') return { label: 'Other', color: '#7c3aed' };
   return { label: sub || 'Exercise', color: '#6b7280' };
+}
+
+// Map a Salesforce progress status to a display label + color. Covers both the
+// program roll-up (LearningItemProgress) and per-exercise (EnblProgramTaskProgress)
+// status vocabularies.
+function gcStatusMeta(status) {
+  var s = status || '';
+  var green = '#047857', amber = '#b45309', blue = '#0072CE', gray = '#6b7280';
+  if (/^Completed/i.test(s) || s === 'Succeeded') return { label: s || 'Completed', color: green };
+  if (/Behind/i.test(s)) return { label: 'Behind', color: amber };
+  if (/Not ?Completed/i.test(s)) return { label: 'Not Completed', color: gray };
+  if (/Not ?Started/i.test(s)) return { label: 'Not Started', color: gray };
+  if (/In ?Progress/i.test(s)) return { label: 'In Progress', color: blue };
+  return { label: s || '—', color: gray };
 }
 
 async function openProgramDetail(id) {
@@ -1752,12 +1768,16 @@ async function openProgramDetail(id) {
   nodes.push(el('h3', 'font-size:16px;font-weight:700;color:#111827;margin:0 0 8px;line-height:1.3;', prog.Name || ''));
   if (prog.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;', prog.Description));
 
-  var completed = (p.MyEnrollmentStatus === 'Succeeded');
-  var pct = completed ? 100 : 0;   // learner view: reflect the user's own status, not org-wide completion
-  var statusLabel = completed ? 'Completed' : (p.MyEnrollmentStatus || prog.Status || 'Enrolled');
-  nodes.push(el('div', 'text-align:right;font-size:12px;font-weight:700;color:' + (completed ? '#047857' : '#b45309') + ';margin-bottom:4px;', statusLabel));
+  // Real learner progress from Salesforce.
+  var mp = data.myProgress || {};
+  var sm = gcStatusMeta(mp.status || p.MyProgressStatus || p.MyEnrollmentStatus);
+  var pct = (mp.percent != null) ? Math.round(mp.percent) : (sm.label === 'Completed' ? 100 : 0);
+  var head = el('div', 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;');
+  head.appendChild(el('span', 'font-size:12px;font-weight:700;color:' + sm.color + ';', sm.label));
+  head.appendChild(el('span', 'font-size:12px;font-weight:700;color:#111827;', pct + '%'));
+  nodes.push(head);
   var bar = el('div', 'background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;');
-  bar.appendChild(el('div', 'background:#0072CE;height:100%;width:' + pct + '%;border-radius:4px;'));
+  bar.appendChild(el('div', 'background:' + sm.color + ';height:100%;width:' + pct + '%;border-radius:4px;'));
   nodes.push(bar);
   var meta = el('div', 'display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:2px;');
   meta.appendChild(el('span', '', (prog.TotalDays ? prog.TotalDays + '-day program' : (prog.Type || 'Enablement'))));
@@ -1771,12 +1791,16 @@ async function openProgramDetail(id) {
     nodes.push(el('div', 'font-size:11px;color:#6b7280;', 'No milestones defined for this program.'));
   }
   sections.forEach(function(s) {
+    var doneCount = s.tasks.filter(function(t) { return t.progress && t.progress.isCompleted; }).length;
+    var allDone = s.tasks.length > 0 && doneCount === s.tasks.length;
     var ms = el('div', 'margin-bottom:10px;');
     var hdr = el('div', 'display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;');
     var chev = el('span', 'font-size:10px;color:#6b7280;width:14px;flex-shrink:0;', '▼');
     hdr.appendChild(chev);
-    hdr.appendChild(el('div', 'width:20px;height:20px;border-radius:50%;border:2px solid #d1d5db;flex-shrink:0;'));
-    hdr.appendChild(el('span', 'font-weight:600;font-size:13px;color:#111827;', (s.Name || '') + '  (' + s.tasks.length + ')'));
+    // Milestone completion ring — filled green when every exercise is done.
+    var ring = el('div', 'width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;' + (allDone ? 'background:#047857;border:2px solid #047857;' : 'border:2px solid #d1d5db;'), allDone ? '✓' : '');
+    hdr.appendChild(ring);
+    hdr.appendChild(el('span', 'font-weight:600;font-size:13px;color:#111827;', (s.Name || '') + '  (' + doneCount + '/' + s.tasks.length + ')'));
     var bodyMs = el('div', 'padding-left:22px;margin-top:6px;');
     hdr.onclick = function() {
       var hidden = bodyMs.style.display === 'none';
@@ -1786,10 +1810,19 @@ async function openProgramDetail(id) {
     s.tasks.forEach(function(t, ti) {
       if (ti > 0) bodyMs.appendChild(el('div', 'border-top:1px solid #f3f4f6;margin:6px 0;'));
       var meta2 = gcTaskMeta(t.TaskSubCategory);
+      var tp = t.progress || {};
+      var done = !!tp.isCompleted;
       var ex = el('div', 'display:flex;gap:10px;align-items:flex-start;padding:8px 0;');
-      ex.appendChild(el('div', 'width:34px;height:34px;border-radius:6px;background:' + meta2.color + ';color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;', '' + (t.Day ? 'D' + t.Day : '•')));
+      // Icon tile: green check when the exercise is completed, else the day.
+      ex.appendChild(el('div', 'width:34px;height:34px;border-radius:6px;background:' + (done ? '#047857' : meta2.color) + ';color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;', done ? '✓' : ('' + (t.Day ? 'D' + t.Day : '•'))));
       var info = el('div', 'flex:1;min-width:0;');
-      info.appendChild(el('div', 'font-size:10px;color:#6b7280;', meta2.label));
+      var labelRow = el('div', 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;');
+      labelRow.appendChild(el('span', 'font-size:10px;color:#6b7280;', meta2.label));
+      if (tp.status) {
+        var esm = gcStatusMeta(tp.status);
+        labelRow.appendChild(el('span', 'font-size:9px;font-weight:600;color:' + esm.color + ';background:' + esm.color + '1a;border-radius:8px;padding:1px 6px;', esm.label));
+      }
+      info.appendChild(labelRow);
       info.appendChild(el('div', 'font-weight:700;font-size:12px;color:#111827;line-height:1.3;', t.Name || ''));
       if (t.Description) info.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin:2px 0;', t.Description));
       if (t.video) {
@@ -1866,6 +1899,14 @@ function openVideoModal(v) {
   if (!modal || !stage) return;
   titleEl.textContent = v.Title || 'Video';
 
+  var isMp4 = (v.Type === 'MP4') || /\.mp4($|\?)/i.test(v.Url || '');
+  // A plain external link can't be embedded reliably (X-Frame-Options) — open it
+  // in a new tab and skip the modal.
+  if (!v.embedUrl && !v.YouTubeId && !isMp4 && (v.ContentUrl || v.Url)) {
+    window.open(v.ContentUrl || v.Url, '_blank', 'noopener');
+    return;
+  }
+
   var player;
   if (v.embedUrl || v.YouTubeId) {
     var src = v.embedUrl || ('https://www.youtube.com/embed/' + v.YouTubeId);
@@ -1874,7 +1915,7 @@ function openVideoModal(v) {
     player.setAttribute('title', v.Title || 'Video');
     player.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
     player.setAttribute('allowfullscreen', 'true');
-  } else if (v.Url) {
+  } else if (isMp4 && v.Url) {
     player = el('video', 'width:100%;height:100%;background:#000;display:block;');
     player.setAttribute('src', v.Url);
     player.setAttribute('controls', 'true');

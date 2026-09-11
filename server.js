@@ -70,6 +70,27 @@ async function getMyUserId(conn) {
   return _myUserId;
 }
 
+// ── Helper: the current user's real per-program progress ─────────────────────
+// The authoritative learner progress lives on LearningItemProgress (the program
+// roll-up record the user owns), not on the program-owner rollups. Returns a map
+// of programId -> { percent, status }.
+async function fetchProgramProgress(conn, me, programIds) {
+  const byProgram = {};
+  if (!programIds.length) return byProgram;
+  const idList = programIds.map((id) => `'${id}'`).join(',');
+  const result = await conn.query(
+    `SELECT LearningItem.EnablementProgramId, CompletedPercent, ProgressStatus
+     FROM LearningItemProgress
+     WHERE OwnerId = '${me}'
+       AND LearningItem.EnablementProgramId IN (${idList})`
+  );
+  for (const r of result.records) {
+    const pid = r.LearningItem && r.LearningItem.EnablementProgramId;
+    if (pid) byProgram[pid] = { percent: r.CompletedPercent, status: r.ProgressStatus };
+  }
+  return byProgram;
+}
+
 // Small wrapper so each route gets consistent error handling.
 function handler(fn) {
   return async (req, res) => {
@@ -179,10 +200,19 @@ app.get('/api/programs', handler(async (conn, req, res) => {
      ORDER BY PublishedDateTime DESC NULLS LAST`
   );
 
-  const withEnrollment = programs.records.map((p) => ({
-    ...p,
-    MyEnrollmentStatus: statusByProgram[p.Id] || null,
-  }));
+  // Real learner progress (percent + status) for the status bar.
+  let progressByProgram = {};
+  try { progressByProgram = await fetchProgramProgress(conn, me, programIds); } catch (_) {}
+
+  const withEnrollment = programs.records.map((p) => {
+    const prog = progressByProgram[p.Id] || {};
+    return {
+      ...p,
+      MyEnrollmentStatus: statusByProgram[p.Id] || null,
+      MyProgressPercent: (prog.percent != null ? prog.percent : null),
+      MyProgressStatus: prog.status || null,
+    };
+  });
   res.json(withEnrollment);
 }));
 
@@ -220,21 +250,52 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
      ORDER BY EnblProgramSectionId, SequenceNumber`
   );
 
-  // Attach launchable video content to the program's video exercises. The
-  // Enablement objects don't expose a per-exercise content URL via the API, so
-  // for the demo we surface real videos from the Product_Video__c catalog and
-  // link them to the exercises whose content is meant to be watched. Videos are
-  // assigned round-robin so multiple video exercises get distinct clips.
+  // Real per-exercise progress for the current user (status + completion).
+  const me = await getMyUserId(conn);
+  const progByTask = {};
+  try {
+    const tp = await conn.query(
+      `SELECT EnblProgramTaskDefinitionId, IsCompleted, CompletedPercent, ProgressStatus
+       FROM EnblProgramTaskProgress
+       WHERE EnblProgramTaskDefinition.EnablementProgramId = '${id}'
+         AND LearningItemProgress.OwnerId = '${me}'`
+    );
+    for (const r of tp.records) {
+      progByTask[r.EnblProgramTaskDefinitionId] = {
+        isCompleted: r.IsCompleted,
+        percent: r.CompletedPercent,
+        status: r.ProgressStatus,
+      };
+    }
+  } catch (_) {}
+
+  // Program-level progress (percent + status) for the drill-down status bar.
+  let programProgress = null;
+  try {
+    const pp = await fetchProgramProgress(conn, me, [id]);
+    programProgress = pp[id] || null;
+  } catch (_) {}
+
+  // Attach launchable video content to the program's video exercises. Preferred
+  // source is the exercise's mapped content URL (EXERCISE_CONTENT_URLS); the
+  // Enablement content URL isn't exposed via the API. Any remaining video
+  // exercises fall back to the Product_Video__c catalog (round-robin so distinct
+  // exercises get distinct clips) to demonstrate the launch capability.
   let videoPool = [];
   try { videoPool = await fetchPlayableVideos(conn); } catch (_) { videoPool = []; }
   let vIdx = 0;
   const tasks = taskResult.records.map((t) => {
-    if (videoPool.length && isVideoExercise(t)) {
+    const withProgress = { ...t, progress: progByTask[t.Id] || null };
+    if (!isVideoExercise(t)) return withProgress;
+    if (EXERCISE_CONTENT_URLS[t.Id]) {
+      return { ...withProgress, video: videoFromUrl(EXERCISE_CONTENT_URLS[t.Id], t.Name) };
+    }
+    if (videoPool.length) {
       const video = videoPool[vIdx % videoPool.length];
       vIdx += 1;
-      return { ...t, video };
+      return { ...withProgress, video };
     }
-    return t;
+    return withProgress;
   });
 
   // Group tasks (exercises) under their section (milestone).
@@ -249,7 +310,7 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
     tasks: tasksBySection[s.Id] || [],
   }));
 
-  res.json({ program, sections, taskCount: taskResult.records.length });
+  res.json({ program, sections, taskCount: taskResult.records.length, myProgress: programProgress });
 }));
 
 // ── Video content (Product_Video__c) ────────────────────────────────────────
@@ -301,11 +362,50 @@ async function fetchPlayableVideos(conn, limit) {
   return out;
 }
 
-// A program exercise is a "video" exercise if its content is meant to be watched.
+// A program exercise is a "video" exercise if Salesforce marks it as a Video
+// exercise (TaskSubCategory) or its content is clearly meant to be watched.
 function isVideoExercise(task) {
+  if ((task.TaskSubCategory || '') === 'Video') return true;
   const name = (task.Name || '').toLowerCase();
   const desc = (task.Description || '').toLowerCase();
   return /\bvideo\b|\bwatch\b/.test(name) || /\bvideo\b/.test(desc);
+}
+
+// Per-exercise content URLs. Salesforce Enablement serves an exercise's video
+// through LearningContent, which in this org is an EXTERNAL (Trailhead-backed)
+// object that is not queryable via the API — so the real content URL cannot be
+// read off the exercise record. Map an exercise Id to the URL that opens its
+// content here. Replace the value with the actual Salesforce content URL.
+const EXERCISE_CONTENT_URLS = {
+  // "Quality Next-Gen Introductory Calls" (Supporting Clients With Generational
+  // Wealth Transfer). Placeholder → replace with the real Salesforce video URL.
+  '0kkHu000001DI3IIAW': 'https://www.youtube.com/watch?v=di6iwHhrH6s',
+};
+
+// Extract a YouTube video id from any common YouTube URL form.
+function parseYouTubeId(url) {
+  const m = String(url).match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return m ? m[1] : null;
+}
+
+// Build the normalized video shape from a plain content URL. YouTube URLs get an
+// embed url so they play inline; other URLs are returned as a link-out target.
+function videoFromUrl(url, title) {
+  const yt = parseYouTubeId(url);
+  const isMp4 = /\.mp4($|\?)/i.test(url);
+  return {
+    Id: null,
+    Title: title || 'Video',
+    Type: yt ? 'YouTube' : (isMp4 ? 'MP4' : 'Link'),
+    YouTubeId: yt,
+    Url: yt ? null : url,
+    ContentUrl: url,
+    Description: null,
+    embedUrl: yt ? `https://www.youtube.com/embed/${yt}` : null,
+    thumbUrl: yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null,
+  };
 }
 
 app.get('/api/videos', handler(async (conn, req, res) => {
