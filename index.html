@@ -1017,7 +1017,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
       <div style="font-weight:600;font-size:13px;color:#111827;">Guidance Center</div>
       <span style="font-size:11px;color:#0072CE;cursor:pointer;">View More</span>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:8px;">
+    <div id="gc-list-body" style="flex:1;overflow-y:auto;padding:8px;">
       <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Selected for You</div>
       <!-- Program 1: Generational Wealth -->
       <div style="padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;" onclick="">
@@ -1524,6 +1524,8 @@ async function loadSFData() {
     // Load contacts → populate actionable list table
     const contacts = await fetch('/api/contacts').then(r => r.json());
     if (Array.isArray(contacts) && contacts.length) {
+      window._contactsById = {};
+      contacts.forEach(function(c){ window._contactsById[c.Id] = c; });
       var tbody = document.querySelector('#dash-actionable-list table tbody');
       if (tbody) {
         tbody.innerHTML = contacts.map(function(c, i) {
@@ -1532,7 +1534,7 @@ async function loadSFData() {
           return '<tr style="border-bottom:1px solid #f3f4f6;background:' + bg + '">' +
             '<td style="padding:8px 10px"><input type="checkbox"></td>' +
             '<td style="padding:8px 6px;color:#6b7280">' + (i+1) + '</td>' +
-            '<td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer">' + (c.Name || '') + '</td>' +
+            '<td style="padding:8px 12px;color:#0072CE;font-weight:500;cursor:pointer" title="Click to edit in Salesforce" onclick="openContactEdit(\'' + c.Id + '\')">' + (c.Name || '') + ' <span style="color:#9ca3af;font-size:11px">✎</span></td>' +
             '<td style="padding:8px 12px;text-align:center"><div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></div></td>' +
             '<td style="padding:8px 12px"><span style="background:#3b82f6;color:white;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500">Active</span></td>' +
             '<td style="padding:8px 12px;color:#374151">' + (c.Owner ? c.Owner.Name : '') + '</td>' +
@@ -1593,10 +1595,189 @@ async function loadSFData() {
   }
 }
 
+// ── Small DOM helper: safe element creation (no innerHTML) ───────────────────
+function el(tag, style, text) {
+  var e = document.createElement(tag);
+  if (style) e.setAttribute('style', style);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function fmtMeasure(m) {
+  if (m.value == null) return '—';
+  var isMoney = m.Field === 'Amount' || /revenue|amount|deal size|pipeline/i.test(m.Label || '');
+  var n = Number(m.value);
+  if (isNaN(n)) return String(m.value);
+  if (isMoney) {
+    if (Math.abs(n) >= 1000) return '$' + Math.round(n).toLocaleString();
+    return '$' + n.toLocaleString();
+  }
+  return n.toLocaleString();
+}
+
+// ── Guidance Center: enrolled programs + live measures ───────────────────────
+async function loadGuidanceCenter() {
+  var body = document.getElementById('gc-list-body');
+  if (!body) return;
+  var programs = [], measures = [];
+  try { programs = await fetch('/api/programs').then(function(r){return r.json();}); } catch (e) {}
+  try { measures = await fetch('/api/measures').then(function(r){return r.json();}); } catch (e) {}
+  if (!Array.isArray(programs)) programs = [];
+  if (!Array.isArray(measures)) measures = [];
+
+  var nodes = [];
+
+  // Programs section
+  nodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;', 'Assigned Programs (' + programs.length + ')'));
+
+  programs.forEach(function(p) {
+    var card = el('div', 'padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;');
+    var head = el('div', 'display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;');
+    var icon = el('div', 'width:36px;height:36px;border-radius:6px;background:#1a5fa8;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;', '📘');
+    var titleWrap = el('div', 'flex:1;min-width:0;');
+    titleWrap.appendChild(el('div', 'font-size:10px;color:#6b7280;margin-bottom:2px;', 'Program · ' + (p.Type || 'Enablement')));
+    titleWrap.appendChild(el('div', 'font-size:12px;font-weight:600;color:#111827;line-height:1.3;', p.Name || ''));
+    head.appendChild(icon); head.appendChild(titleWrap);
+    card.appendChild(head);
+
+    if (p.Description) {
+      var desc = (p.Description.length > 160) ? p.Description.slice(0, 157) + '…' : p.Description;
+      card.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin-bottom:6px;', desc));
+    }
+
+    var completed = (p.MyEnrollmentStatus === 'Succeeded');
+    var pct = completed ? 100 : (p.TotalAssigned ? Math.round((p.TotalCompleted / p.TotalAssigned) * 100) : 0);
+    var metaRow = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;');
+    metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : '') + ' · ' + p.TotalAssigned + ' enrolled'));
+    var badgeColor = completed ? '#047857' : '#b45309';
+    metaRow.appendChild(el('span', 'font-size:11px;font-weight:600;color:' + badgeColor + ';', completed ? 'Completed' : (p.MyEnrollmentStatus || p.Status)));
+    card.appendChild(metaRow);
+
+    var bar = el('div', 'background:#e5e7eb;border-radius:4px;height:6px;overflow:hidden;');
+    bar.appendChild(el('div', 'background:#0072CE;height:100%;width:' + pct + '%;border-radius:4px;'));
+    card.appendChild(bar);
+    nodes.push(card);
+  });
+
+  if (programs.length === 0) {
+    nodes.push(el('div', 'font-size:11px;color:#6b7280;padding:8px;', 'You are not enrolled in any programs.'));
+  }
+
+  // Measures section
+  nodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;', 'Your Measures'));
+  var mCard = el('div', 'padding:6px 10px;border-radius:8px;background:#fff;border:1px solid #e5e7eb;');
+  measures.forEach(function(m, i) {
+    var row = el('div', 'display:flex;align-items:center;justify-content:space-between;padding:7px 0;' + (i < measures.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''));
+    var left = el('div', 'min-width:0;');
+    left.appendChild(el('div', 'font-size:12px;color:#111827;font-weight:500;', m.Label || ''));
+    left.appendChild(el('div', 'font-size:10px;color:#9ca3af;', (m.Aggregate || '') + ' · ' + (m.SourceObject || '')));
+    row.appendChild(left);
+    row.appendChild(el('div', 'font-size:14px;font-weight:700;color:#0072CE;flex-shrink:0;margin-left:8px;', fmtMeasure(m)));
+    mCard.appendChild(row);
+  });
+  nodes.push(mCard);
+
+  body.replaceChildren.apply(body, nodes);
+}
+
+// ── Edit a Contact in Salesforce ─────────────────────────────────────────────
+function openContactEdit(id) {
+  var c = (window._contactsById || {})[id];
+  if (!c) return;
+  document.getElementById('ce-id').value = c.Id;
+  document.getElementById('ce-title-name').textContent = c.Name || 'Edit Contact';
+  document.getElementById('ce-first').value = c.FirstName || '';
+  document.getElementById('ce-last').value = c.LastName || '';
+  document.getElementById('ce-email').value = c.Email || '';
+  document.getElementById('ce-phone').value = c.Phone || '';
+  document.getElementById('ce-jobtitle').value = c.Title || '';
+  document.getElementById('ce-msg').textContent = '';
+  document.getElementById('contact-edit-overlay').style.display = 'flex';
+}
+function closeContactEdit() {
+  document.getElementById('contact-edit-overlay').style.display = 'none';
+}
+async function saveContactEdit() {
+  var id = document.getElementById('ce-id').value;
+  var payload = {
+    FirstName: document.getElementById('ce-first').value,
+    LastName: document.getElementById('ce-last').value,
+    Email: document.getElementById('ce-email').value,
+    Phone: document.getElementById('ce-phone').value,
+    Title: document.getElementById('ce-jobtitle').value
+  };
+  var msg = document.getElementById('ce-msg');
+  var btn = document.getElementById('ce-save');
+  msg.style.color = '#6b7280'; msg.textContent = 'Saving to Salesforce…'; btn.disabled = true;
+  try {
+    var res = await fetch('/api/records/Contact/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    var data = await res.json();
+    if (res.ok && data.success) {
+      msg.style.color = '#047857'; msg.textContent = '✓ Saved to Salesforce';
+      if (window._contactsById && window._contactsById[id]) {
+        Object.assign(window._contactsById[id], payload);
+      }
+      setTimeout(function(){ closeContactEdit(); loadSFData(); }, 800);
+    } else {
+      msg.style.color = '#dc2626'; msg.textContent = 'Error: ' + (data.error || res.status);
+    }
+  } catch (e) {
+    msg.style.color = '#dc2626'; msg.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // Run on load
 document.addEventListener('DOMContentLoaded', function() {
   loadSFData();
+  loadGuidanceCenter();
 });
 </script>
+<!-- Contact Edit Modal -->
+<div id="contact-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:420px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden;">
+    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#0072CE;">
+      <div>
+        <div style="font-size:11px;color:#cfe6fb;">Edit Contact · Salesforce</div>
+        <div id="ce-title-name" style="font-size:15px;font-weight:700;color:#fff;">Edit Contact</div>
+      </div>
+      <span onclick="closeContactEdit()" style="font-size:20px;color:#fff;cursor:pointer;line-height:1;">✕</span>
+    </div>
+    <div style="padding:18px;">
+      <input type="hidden" id="ce-id">
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">First Name</label>
+          <input id="ce-first" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">Last Name</label>
+          <input id="ce-last" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">Title</label>
+        <input id="ce-jobtitle" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">Email</label>
+        <input id="ce-email" type="email" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:11px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">Phone</label>
+        <input id="ce-phone" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+      </div>
+      <div id="ce-msg" style="font-size:12px;min-height:18px;margin:8px 0;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="closeContactEdit()" style="padding:8px 16px;border:1px solid #d1d5db;background:#fff;border-radius:6px;font-size:13px;cursor:pointer;color:#374151;">Cancel</button>
+        <button id="ce-save" onclick="saveContactEdit()" style="padding:8px 16px;border:none;background:#0072CE;color:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Save to Salesforce</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
