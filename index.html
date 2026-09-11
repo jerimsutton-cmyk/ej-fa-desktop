@@ -932,15 +932,15 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 <div class="panel-tab" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Chart">
 <svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line><line x1="2" x2="22" y1="20" y2="20"></line></svg>
 </div>
-<div class="panel-tab active" id="tab-alerts" onclick="switchDashPanel('alerts')" style="padding:6px;border-radius:6px;cursor:pointer;color:#1a5fa8;background:#eff6ff;" title="Alerts">
+<div class="panel-tab" id="tab-alerts" onclick="switchDashPanel('alerts')" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Alerts">
 <svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
 </div>
-<div class="panel-tab" id="tab-guidance" onclick="switchDashPanel('guidance')" style="padding:6px;border-radius:6px;cursor:pointer;color:#6b7280;" title="Guidance Center">
+<div class="panel-tab active" id="tab-guidance" onclick="switchDashPanel('guidance')" style="padding:6px;border-radius:6px;cursor:pointer;color:#1a5fa8;background:#eff6ff;" title="Guidance Center">
 <svg height="22" viewbox="0 0 56 56" width="22"><rect fill="#F5A800" height="56" rx="10" width="56"></rect><polygon fill="#5a5232" points="28,10 14,38 42,38"></polygon><polygon fill="#c8a800" points="20,38 28,22 36,38"></polygon><path d="M12,40 Q20,36 28,40 Q36,44 44,40 L44,44 Q36,48 28,44 Q20,40 12,44 Z" fill="#5a5232"></path></svg>
 </div>
 </div>
 <!-- Alerts Panel -->
-<div id="dash-panel-alerts" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+<div id="dash-panel-alerts" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
 <div style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">
 <div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:6px;">Practice Assistant</div>
 <div style="display:flex;gap:4px;font-size:11px;">
@@ -1010,7 +1010,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 </div>
 </div>
 <!-- Guidance Center Panel -->
-<div id="dash-panel-guidance" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+<div id="dash-panel-guidance" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
 
   <!-- Guidance Center: program list view -->
   <div id="gc-list" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
@@ -1058,7 +1058,19 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
     </div>
   </div>
 
-  <!-- Making Good Choices: program detail view -->
+  <!-- Guidance Center drill-down: dynamic program / measure detail -->
+  <div id="gc-detail" style="display:none;flex-direction:column;position:absolute;inset:0;background:#fff;z-index:11;overflow:hidden;">
+    <div style="padding:8px 10px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button onclick="closeGCDetail()" style="background:none;border:1px solid #d1d5db;border-radius:6px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#374151" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span id="gc-detail-title" style="font-weight:600;font-size:13px;color:#111827;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Detail</span>
+      <span style="font-size:16px;cursor:pointer;color:#6b7280;" onclick="closeGCDetail()">✕</span>
+    </div>
+    <div id="gc-detail-body" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;min-height:0;"></div>
+  </div>
+
+  <!-- Making Good Choices: program detail view (legacy static mock, unused) -->
   <div id="gc-mgc" style="display:none;flex-direction:column;position:absolute;inset:0;background:#fff;z-index:10;overflow:hidden;">
     <!-- Header with back arrow -->
     <div style="padding:8px 10px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -1499,17 +1511,22 @@ function switchDashPanel(mode) {
   var guidance = document.getElementById('dash-panel-guidance');
   var tabAlerts = document.getElementById('tab-alerts');
   var tabGuidance = document.getElementById('tab-guidance');
-  if (mode === 'alerts') {
-    if (alerts) alerts.style.display = '';
-    if (guidance) guidance.style.display = 'none';
-    if (tabAlerts) tabAlerts.classList.add('active');
-    if (tabGuidance) tabGuidance.classList.remove('active');
-  } else {
-    if (alerts) alerts.style.display = 'none';
-    if (guidance) guidance.style.display = '';
-    if (tabAlerts) tabAlerts.classList.remove('active');
-    if (tabGuidance) tabGuidance.classList.add('active');
+  var on = 'color:#1a5fa8;background:#eff6ff;';   // active tab highlight
+  var off = 'color:#6b7280;';                     // inactive tab
+  var base = 'padding:6px;border-radius:6px;cursor:pointer;';
+  var guidanceMode = (mode !== 'alerts');
+  if (alerts) alerts.style.display = guidanceMode ? 'none' : '';
+  if (guidance) guidance.style.display = guidanceMode ? '' : 'none';
+  if (tabAlerts) {
+    tabAlerts.classList.toggle('active', !guidanceMode);
+    tabAlerts.setAttribute('style', base + (guidanceMode ? off : on));
   }
+  if (tabGuidance) {
+    tabGuidance.classList.toggle('active', guidanceMode);
+    tabGuidance.setAttribute('style', base + (guidanceMode ? on : off));
+  }
+  // Leaving a panel resets any open drill-down so it re-opens cleanly.
+  if (!guidanceMode) closeGCDetail();
 }
 
 // ── Salesforce Live Data ─────────────────────────────────────────────────────
@@ -1625,19 +1642,27 @@ async function loadGuidanceCenter() {
   if (!Array.isArray(programs)) programs = [];
   if (!Array.isArray(measures)) measures = [];
 
+  // Keep the raw records so the drill-down views can read them by Id.
+  window._gcPrograms = {};
+  window._gcMeasures = {};
+  programs.forEach(function(p) { window._gcPrograms[p.Id] = p; });
+  measures.forEach(function(m) { window._gcMeasures[m.Id] = m; });
+
   var nodes = [];
 
   // Programs section
   nodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;', 'Assigned Programs (' + programs.length + ')'));
 
   programs.forEach(function(p) {
-    var card = el('div', 'padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;');
+    var card = el('div', 'padding:10px;border-radius:8px;margin-bottom:8px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;');
+    card.onclick = function() { openProgramDetail(p.Id); };
     var head = el('div', 'display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;');
     var icon = el('div', 'width:36px;height:36px;border-radius:6px;background:#1a5fa8;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;', '📘');
     var titleWrap = el('div', 'flex:1;min-width:0;');
     titleWrap.appendChild(el('div', 'font-size:10px;color:#6b7280;margin-bottom:2px;', 'Program · ' + (p.Type || 'Enablement')));
     titleWrap.appendChild(el('div', 'font-size:12px;font-weight:600;color:#111827;line-height:1.3;', p.Name || ''));
     head.appendChild(icon); head.appendChild(titleWrap);
+    head.appendChild(el('div', 'color:#9ca3af;font-size:16px;flex-shrink:0;align-self:center;', '›'));
     card.appendChild(head);
 
     if (p.Description) {
@@ -1667,17 +1692,147 @@ async function loadGuidanceCenter() {
   nodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;', 'Your Measures'));
   var mCard = el('div', 'padding:6px 10px;border-radius:8px;background:#fff;border:1px solid #e5e7eb;');
   measures.forEach(function(m, i) {
-    var row = el('div', 'display:flex;align-items:center;justify-content:space-between;padding:7px 0;' + (i < measures.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''));
+    var row = el('div', 'display:flex;align-items:center;justify-content:space-between;padding:7px 0;cursor:pointer;' + (i < measures.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''));
+    row.onclick = function() { openMeasureDetail(m.Id); };
     var left = el('div', 'min-width:0;');
     left.appendChild(el('div', 'font-size:12px;color:#111827;font-weight:500;', m.Label || ''));
     left.appendChild(el('div', 'font-size:10px;color:#9ca3af;', (m.Aggregate || '') + ' · ' + (m.SourceObject || '')));
     row.appendChild(left);
-    row.appendChild(el('div', 'font-size:14px;font-weight:700;color:#0072CE;flex-shrink:0;margin-left:8px;', fmtMeasure(m)));
+    var valWrap = el('div', 'display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;');
+    valWrap.appendChild(el('div', 'font-size:14px;font-weight:700;color:#0072CE;', fmtMeasure(m)));
+    valWrap.appendChild(el('div', 'color:#9ca3af;font-size:15px;', '›'));
+    row.appendChild(valWrap);
     mCard.appendChild(row);
   });
   nodes.push(mCard);
 
   body.replaceChildren.apply(body, nodes);
+}
+
+// ── Guidance Center drill-down: program detail (milestones & exercises) ──────
+function gcTaskMeta(sub) {
+  if (sub === 'ActionItem') return { label: 'Action Item', color: '#1a5fa8' };
+  if (sub === 'Document') return { label: 'Document', color: '#2E844A' };
+  if (sub === 'OtherExercise') return { label: 'Other', color: '#7c3aed' };
+  return { label: sub || 'Exercise', color: '#6b7280' };
+}
+
+async function openProgramDetail(id) {
+  var panel = document.getElementById('gc-detail');
+  var body = document.getElementById('gc-detail-body');
+  var titleEl = document.getElementById('gc-detail-title');
+  if (!panel || !body) return;
+  var p = window._gcPrograms[id] || {};
+  titleEl.textContent = p.Name || 'Program';
+  panel.style.display = 'flex';
+  body.replaceChildren(el('div', 'padding:16px;color:#6b7280;font-size:12px;', 'Loading program…'));
+
+  var data = null;
+  try { data = await fetch('/api/programs/' + encodeURIComponent(id)).then(function(r){ return r.json(); }); } catch (e) {}
+  if (!data || data.error) {
+    body.replaceChildren(el('div', 'padding:16px;color:#dc2626;font-size:12px;', 'Could not load program: ' + ((data && data.error) || 'error')));
+    return;
+  }
+  var prog = data.program || p;
+  var sections = data.sections || [];
+  var nodes = [];
+
+  nodes.push(el('h3', 'font-size:16px;font-weight:700;color:#111827;margin:0 0 8px;line-height:1.3;', prog.Name || ''));
+  if (prog.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;', prog.Description));
+
+  var completed = (p.MyEnrollmentStatus === 'Succeeded');
+  var pct = completed ? 100 : (prog.TotalAssigned ? Math.round((prog.TotalCompleted / prog.TotalAssigned) * 100) : 0);
+  nodes.push(el('div', 'text-align:right;font-size:12px;font-weight:700;color:#111827;margin-bottom:4px;', pct + '%'));
+  var bar = el('div', 'background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;');
+  bar.appendChild(el('div', 'background:#0072CE;height:100%;width:' + pct + '%;border-radius:4px;'));
+  nodes.push(bar);
+  var meta = el('div', 'display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:2px;');
+  meta.appendChild(el('span', '', (prog.TotalDays ? prog.TotalDays + '-day program' : (prog.Type || 'Enablement'))));
+  meta.appendChild(el('span', '', data.taskCount + ' exercises · ' + (prog.TotalAssigned || 0) + ' enrolled'));
+  nodes.push(meta);
+  nodes.push(el('div', 'border-top:1px solid #e5e7eb;margin:12px 0;'));
+
+  nodes.push(el('div', 'font-weight:600;font-size:13px;color:#111827;margin-bottom:10px;', 'Milestones & Exercises'));
+
+  if (!sections.length) {
+    nodes.push(el('div', 'font-size:11px;color:#6b7280;', 'No milestones defined for this program.'));
+  }
+  sections.forEach(function(s) {
+    var ms = el('div', 'margin-bottom:10px;');
+    var hdr = el('div', 'display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;');
+    var chev = el('span', 'font-size:10px;color:#6b7280;width:14px;flex-shrink:0;', '▼');
+    hdr.appendChild(chev);
+    hdr.appendChild(el('div', 'width:20px;height:20px;border-radius:50%;border:2px solid #d1d5db;flex-shrink:0;'));
+    hdr.appendChild(el('span', 'font-weight:600;font-size:13px;color:#111827;', (s.Name || '') + '  (' + s.tasks.length + ')'));
+    var bodyMs = el('div', 'padding-left:22px;margin-top:6px;');
+    hdr.onclick = function() {
+      var hidden = bodyMs.style.display === 'none';
+      bodyMs.style.display = hidden ? 'block' : 'none';
+      chev.textContent = hidden ? '▼' : '▶';
+    };
+    s.tasks.forEach(function(t, ti) {
+      if (ti > 0) bodyMs.appendChild(el('div', 'border-top:1px solid #f3f4f6;margin:6px 0;'));
+      var meta2 = gcTaskMeta(t.TaskSubCategory);
+      var ex = el('div', 'display:flex;gap:10px;align-items:flex-start;padding:8px 0;');
+      ex.appendChild(el('div', 'width:34px;height:34px;border-radius:6px;background:' + meta2.color + ';color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;', '' + (t.Day ? 'D' + t.Day : '•')));
+      var info = el('div', 'flex:1;min-width:0;');
+      info.appendChild(el('div', 'font-size:10px;color:#6b7280;', meta2.label));
+      info.appendChild(el('div', 'font-weight:700;font-size:12px;color:#111827;line-height:1.3;', t.Name || ''));
+      if (t.Description) info.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin:2px 0;', t.Description));
+      ex.appendChild(info);
+      bodyMs.appendChild(ex);
+    });
+    ms.appendChild(hdr);
+    ms.appendChild(bodyMs);
+    nodes.push(ms);
+  });
+
+  body.replaceChildren.apply(body, nodes);
+}
+
+// ── Guidance Center drill-down: measure detail ───────────────────────────────
+function openMeasureDetail(id) {
+  var panel = document.getElementById('gc-detail');
+  var body = document.getElementById('gc-detail-body');
+  var titleEl = document.getElementById('gc-detail-title');
+  var m = window._gcMeasures[id];
+  if (!panel || !body || !m) return;
+  titleEl.textContent = m.Label || 'Measure';
+  panel.style.display = 'flex';
+
+  var nodes = [];
+  nodes.push(el('h3', 'font-size:16px;font-weight:700;color:#111827;margin:0 0 4px;line-height:1.3;', m.Label || ''));
+  nodes.push(el('div', 'font-size:11px;color:#6b7280;margin-bottom:12px;', 'Enablement Measure · ' + (m.Status || '')));
+
+  // Big live value
+  var valCard = el('div', 'background:#f0f7ff;border:1px solid #cfe3ff;border-radius:10px;padding:16px;text-align:center;margin-bottom:14px;');
+  valCard.appendChild(el('div', 'font-size:28px;font-weight:800;color:#0072CE;line-height:1;', fmtMeasure(m)));
+  valCard.appendChild(el('div', 'font-size:11px;color:#6b7280;margin-top:6px;', 'Your current value'));
+  nodes.push(valCard);
+  if (m.valueError) {
+    nodes.push(el('div', 'font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;margin-bottom:12px;', 'Live value unavailable (' + m.valueError + ').'));
+  }
+
+  if (m.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 14px;', m.Description));
+
+  // Definition rows
+  function defRow(label, value) {
+    var r = el('div', 'display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #f3f4f6;font-size:12px;');
+    r.appendChild(el('span', 'color:#6b7280;', label));
+    r.appendChild(el('span', 'color:#111827;font-weight:500;text-align:right;', value || '—'));
+    return r;
+  }
+  nodes.push(el('div', 'font-weight:600;font-size:13px;color:#111827;margin-bottom:2px;', 'How it is calculated'));
+  nodes.push(defRow('Aggregate', m.Aggregate));
+  nodes.push(defRow('Source object', m.SourceObject));
+  nodes.push(defRow('Field', m.Field));
+  nodes.push(defRow('Scope', 'Records you own'));
+  body.replaceChildren.apply(body, nodes);
+}
+
+function closeGCDetail() {
+  var panel = document.getElementById('gc-detail');
+  if (panel) panel.style.display = 'none';
 }
 
 // ── Edit a Contact in Salesforce ─────────────────────────────────────────────
@@ -1736,6 +1891,8 @@ async function saveContactEdit() {
 document.addEventListener('DOMContentLoaded', function() {
   loadSFData();
   loadGuidanceCenter();
+  // Default the right panel to the Guidance Center.
+  switchDashPanel('guidance');
 });
 </script>
 <!-- Contact Edit Modal -->

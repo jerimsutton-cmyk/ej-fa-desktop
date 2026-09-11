@@ -186,6 +186,55 @@ app.get('/api/programs', handler(async (conn, req, res) => {
   res.json(withEnrollment);
 }));
 
+// ── READ: a single Enablement Program with its milestones (sections) and
+//         exercises (task definitions), for the Guidance Center drill-down ────
+app.get('/api/programs/:id', handler(async (conn, req, res) => {
+  const { id } = req.params;
+  if (!/^[a-zA-Z0-9]{15,18}$/.test(id)) {
+    return res.status(400).json({ error: 'Invalid program Id.' });
+  }
+
+  const progResult = await conn.query(
+    `SELECT Id, Name, Status, Type, Description, TotalDays, IsOutcomeBased,
+            TotalAssigned, TotalCompleted, TotalBehind, PublishedDateTime,
+            OwnerId, Owner.Name
+     FROM EnablementProgram
+     WHERE Id = '${id}'`
+  );
+  if (!progResult.records.length) {
+    return res.status(404).json({ error: 'Program not found.' });
+  }
+  const program = progResult.records[0];
+
+  const sectionResult = await conn.query(
+    `SELECT Id, Name, SequenceNumber
+     FROM EnblProgramSection
+     WHERE EnablementProgramId = '${id}'
+     ORDER BY SequenceNumber`
+  );
+  const taskResult = await conn.query(
+    `SELECT Id, Name, EnblProgramSectionId, Day, TaskCategory, TaskSubCategory,
+            SequenceNumber, Description
+     FROM EnblProgramTaskDefinition
+     WHERE EnablementProgramId = '${id}'
+     ORDER BY EnblProgramSectionId, SequenceNumber`
+  );
+
+  // Group tasks (exercises) under their section (milestone).
+  const tasksBySection = {};
+  for (const t of taskResult.records) {
+    (tasksBySection[t.EnblProgramSectionId] = tasksBySection[t.EnblProgramSectionId] || []).push(t);
+  }
+  const sections = sectionResult.records.map((s) => ({
+    Id: s.Id,
+    Name: s.Name,
+    SequenceNumber: s.SequenceNumber,
+    tasks: tasksBySection[s.Id] || [],
+  }));
+
+  res.json({ program, sections, taskCount: taskResult.records.length });
+}));
+
 // ── READ: Enablement Measures (with a live, owner-scoped value) ──────────────
 app.get('/api/measures', handler(async (conn, req, res) => {
   const me = await getMyUserId(conn);
