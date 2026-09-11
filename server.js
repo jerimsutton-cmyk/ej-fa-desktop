@@ -447,7 +447,7 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
   );
   const taskResult = await conn.query(
     `SELECT Id, Name, EnblProgramSectionId, Day, TaskCategory, TaskSubCategory,
-            SequenceNumber, Description
+            SequenceNumber, Description, MilestoneTarget
      FROM EnblProgramTaskDefinition
      WHERE EnablementProgramId = '${id}'
      ORDER BY EnblProgramSectionId, SequenceNumber`
@@ -521,12 +521,19 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
       if (!(key in liveCache)) liveCache[key] = await measureLiveValue(conn, me, { ...m, marker });
       liveValue = liveCache[key];
     } catch (_) {}
+    const target = (t.MilestoneTarget != null) ? Number(t.MilestoneTarget) : null;
+    // A milestone's outcome measure has met its target — the milestone is achieved
+    // (Salesforce credits completion on its next measure recompute).
+    const met = (liveValue != null && target != null && target > 0)
+      ? (Number(liveValue) >= target) : null;
     return {
       measure: m.label,
       object: m.object,
       fn: m.fn,
       field: m.field,
       liveValue,
+      target,
+      met,
       writable: Boolean(content) || Boolean(tmpl),
       verb: content ? content.verb : (tmpl ? tmpl.verb : null),
       content: Boolean(content),

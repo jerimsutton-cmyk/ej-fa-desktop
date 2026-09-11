@@ -1993,10 +1993,24 @@ function gcFmtDate(d) {
   if (isNaN(dt.getTime())) return '';
   return dt.toLocaleDateString('en-US');
 }
-// Effective completion = Salesforce reports it complete OR the user completed it
-// here in the panel.
+// Effective completion = Salesforce reports it complete, OR the milestone's
+// outcome measure has met its target, OR the user completed it here in the panel.
 function gcTaskDone(t) {
-  return !!(t && ((t.progress && t.progress.isCompleted) || gcIsLocalDone(t.Id)));
+  return !!(t && (
+    (t.progress && t.progress.isCompleted) ||
+    (t.bridge && t.bridge.met === true) ||
+    gcIsLocalDone(t.Id)
+  ));
+}
+// Fractional progress toward a milestone's target (0..1), for the section rings
+// and program bar — so partial measure progress shows even before the target is met.
+function gcTaskFrac(t) {
+  if (gcTaskDone(t)) return 1;
+  var b = t && t.bridge;
+  if (b && b.liveValue != null && b.target != null && b.target > 0) {
+    return Math.max(0, Math.min(1, Number(b.liveValue) / Number(b.target)));
+  }
+  return 0;
 }
 
 // Lazy-load the YouTube IFrame API once, so we can detect when a video ends and
@@ -2108,14 +2122,22 @@ function renderProgramDetail() {
   sections.forEach(function(s) { (s.tasks || []).forEach(function(t) { allTasks.push(t); }); });
   var totalTasks = allTasks.length;
   var doneTasks = allTasks.filter(gcTaskDone).length;
-  var effPct = totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0;
+  // Fractional progress: a met/completed milestone counts as 1, and a milestone
+  // partway to its measure target counts proportionally (e.g. 3 of 20 → 0.15).
+  var effFrac = allTasks.reduce(function(acc, t) { return acc + gcTaskFrac(t); }, 0);
+  var effPct = totalTasks ? Math.round(effFrac / totalTasks * 100) : 0;
 
   var mp = data.myProgress || {};
   var sfPct = (mp.percent != null) ? Math.round(mp.percent) : 0;
   var pct = Math.max(sfPct, effPct);
   var allProgramDone = totalTasks > 0 && doneTasks === totalTasks;
-  var sm = gcStatusMeta(allProgramDone ? 'Completed' : (mp.status || p.MyProgressStatus || p.MyEnrollmentStatus));
-  if (pct === 100 && sm.label !== 'Completed') sm = gcStatusMeta('Completed');
+  // Status reflects effective progress: any completed milestone or measure
+  // movement means "In Progress", even if Salesforce hasn't recomputed yet.
+  var effStatus;
+  if (allProgramDone || pct >= 100) effStatus = 'Completed';
+  else if (doneTasks > 0 || pct > 0) effStatus = 'In Progress';
+  else effStatus = mp.status || p.MyProgressStatus || p.MyEnrollmentStatus;
+  var sm = gcStatusMeta(effStatus);
 
   // Record the override so the Guidance Center list card reflects this too.
   window._gcPctOverride = window._gcPctOverride || {};
@@ -2154,8 +2176,10 @@ function renderProgramDetail() {
     var chev = el('span', 'font-size:11px;color:#6b7280;width:12px;flex-shrink:0;', '▼');
     hdr.appendChild(chev);
     // Section completion ring — a proportional blue arc (SF Guidance Center),
-    // full green with a check when every exercise is done.
-    var frac = s.tasks.length ? doneCount / s.tasks.length : 0;
+    // full green with a check when every exercise is done. Partial measure
+    // progress on a milestone shows as a partial arc.
+    var sFrac = s.tasks.reduce(function(acc, t) { return acc + gcTaskFrac(t); }, 0);
+    var frac = s.tasks.length ? sFrac / s.tasks.length : 0;
     var deg = Math.round(frac * 360);
     var ringColor = allDone ? '#2e844a' : '#0176D3';
     var ring = el('div', 'position:relative;width:26px;height:26px;border-radius:50%;flex-shrink:0;background:conic-gradient(' + ringColor + ' ' + deg + 'deg, #e5e7eb 0);');
@@ -2272,11 +2296,20 @@ function renderProgramDetail() {
       } else if (t.bridge) {
         // Measure-based milestone: shown for context only. Completion is driven by
         // the underlying Enablement Measure — no manual Salesforce action here.
-        var noteText = t.bridge.writable
-          ? 'Counts toward "' + t.bridge.measure + '" · ' + (t.bridge.fn || '') + ' of ' + t.bridge.object +
-            (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')
-          : 'Completed in Salesforce when "' + t.bridge.measure + '" (' + (t.bridge.fn || '') + ' of ' + t.bridge.object + ') is met.';
-        actions.appendChild(el('div', 'font-size:11px;color:#5c5c5c;', noteText));
+        var b = t.bridge;
+        // Show progress toward the milestone's target: "now 3 of 20" (or "✓ target met").
+        var prog = '';
+        if (b.liveValue != null && b.target != null && b.target > 0) {
+          prog = b.met ? '  ·  ✓ target met (' + b.liveValue + ' of ' + b.target + ')'
+                       : '  ·  now ' + b.liveValue + ' of ' + b.target;
+        } else if (b.liveValue != null) {
+          prog = '  ·  now ' + b.liveValue;
+        }
+        var noteText = b.writable
+          ? 'Counts toward "' + b.measure + '" · ' + (b.fn || '') + ' of ' + b.object + prog
+          : 'Completed in Salesforce when "' + b.measure + '" (' + (b.fn || '') + ' of ' + b.object + ') is met.' +
+            (prog ? ' ·' + prog.replace(/^\s*·/, '') : '');
+        actions.appendChild(el('div', 'font-size:11px;color:' + (b.met ? '#047857' : '#5c5c5c') + ';', noteText));
       } else if (!done) {
         // Content exercise with no measure bridge: an in-app completion action.
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
