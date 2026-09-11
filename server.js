@@ -120,13 +120,31 @@ const BRIDGE_TEMPLATES = {
   },
 };
 
+// Content exercises (video / text lesson / link) that were re-authored as outcome
+// milestones in the "Generational Wealth Transfer (Web App)" program. Each is backed
+// by a Count-of-Task measure filtered to a unique Subject marker (Status = Completed,
+// owner-scoped). Completing one from the web app writes a single marker Task owned by
+// the learner, so the runtime engine credits the milestone — no visit to Salesforce.
+// Keyed by the measure's DeveloperName.
+const CONTENT_MARKERS = {
+  Enbl_Completed_AtRiskAUC: { marker: 'ENBL_AtRiskAUC', verb: 'Mark complete' },
+  Enbl_Completed_NextGenVideo: { marker: 'ENBL_NextGenVideo', verb: 'Mark watched' },
+  Enbl_Completed_EstateLesson: { marker: 'ENBL_EstateLesson', verb: 'Mark read' },
+  Enbl_Completed_Scheduling: { marker: 'ENBL_Scheduling', verb: 'Mark complete' },
+  Enbl_Completed_AgentforcePitch: { marker: 'ENBL_AgentforcePitch', verb: 'Mark complete' },
+};
+function markerTask(me, marker) {
+  return { OwnerId: me, Subject: marker, Status: 'Completed', Type: 'Other', ActivityDate: isoDate() };
+}
+
 // The Enablement Measure(s) behind each exercise in a program:
 // taskId -> [{ defId, label, object, fn, field }].
 async function fetchExerciseMeasures(conn, programId) {
   const byTask = {};
   const rows = await conn.query(
     `SELECT EnblProgramTaskDefinitionId, EnablementMeasureDefinitionId,
-            EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.SourceObjectApiName,
+            EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.DeveloperName,
+            EnablementMeasureDefinition.SourceObjectApiName,
             EnablementMeasureDefinition.AggregateFunction, EnablementMeasureDefinition.AggregateFieldApiName
      FROM EnblProgramTaskMeasure
      WHERE EnblProgramTaskDefinition.EnablementProgramId = '${programId}'
@@ -136,6 +154,7 @@ async function fetchExerciseMeasures(conn, programId) {
     const md = r.EnablementMeasureDefinition || {};
     (byTask[r.EnblProgramTaskDefinitionId] = byTask[r.EnblProgramTaskDefinitionId] || []).push({
       defId: r.EnablementMeasureDefinitionId,
+      dev: md.DeveloperName,
       label: md.MasterLabel,
       object: md.SourceObjectApiName,
       fn: md.AggregateFunction,
@@ -161,7 +180,10 @@ async function measureLiveValue(conn, me, m) {
   else if (fn === 'max') selectExpr = `MAX(${field}) v`;
   else if (fn === 'min') selectExpr = `MIN(${field}) v`;
   else selectExpr = 'COUNT(Id) v';
-  const where = OWNER_SCOPED_OBJECTS.has(obj) ? ` WHERE OwnerId = '${me}'` : '';
+  let where = OWNER_SCOPED_OBJECTS.has(obj) ? ` WHERE OwnerId = '${me}'` : '';
+  if (m.marker) {
+    where += (where ? ' AND' : ' WHERE') + ` Subject = '${m.marker}' AND Status = 'Completed'`;
+  }
   const agg = await conn.query(`SELECT ${selectExpr} FROM ${obj}${where}`);
   return agg.records && agg.records[0] ? agg.records[0].v : null;
 }
@@ -384,11 +406,14 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
     const ms = measuresByTask[t.Id];
     if (!ms || !ms.length) return null;
     const m = ms[0];
+    const content = m.dev ? CONTENT_MARKERS[m.dev] : null;
+    const marker = content ? content.marker : null;
     const tmpl = BRIDGE_TEMPLATES[m.object];
     let liveValue = null;
     try {
-      if (!(m.object in liveCache)) liveCache[m.object] = await measureLiveValue(conn, me, m);
-      liveValue = liveCache[m.object];
+      const key = m.object + (marker || '');
+      if (!(key in liveCache)) liveCache[key] = await measureLiveValue(conn, me, { ...m, marker });
+      liveValue = liveCache[key];
     } catch (_) {}
     return {
       measure: m.label,
@@ -396,8 +421,8 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
       fn: m.fn,
       field: m.field,
       liveValue,
-      writable: Boolean(tmpl),
-      verb: tmpl ? tmpl.verb : null,
+      writable: Boolean(content) || Boolean(tmpl),
+      verb: content ? content.verb : (tmpl ? tmpl.verb : null),
     };
   }
 
@@ -654,7 +679,8 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
 
   // Resolve the exercise's Enablement Measure -> the CRM object it counts.
   const rows = await conn.query(
-    `SELECT EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.SourceObjectApiName,
+    `SELECT EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.DeveloperName,
+            EnablementMeasureDefinition.SourceObjectApiName,
             EnablementMeasureDefinition.AggregateFunction, EnablementMeasureDefinition.AggregateFieldApiName
      FROM EnblProgramTaskMeasure
      WHERE EnblProgramTaskDefinitionId = '${taskId}'
@@ -664,13 +690,24 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
     return res.status(400).json({ error: 'This exercise is not measure-based, so it cannot be completed from here. It must be done in Salesforce.' });
   }
   const md = rows.records[0].EnablementMeasureDefinition || {};
-  const object = md.SourceObjectApiName;
-  const tmpl = BRIDGE_TEMPLATES[object];
-  if (!tmpl) {
-    return res.status(422).json({ error: `The measure behind this exercise counts ${object || 'an object'}, which the web app can't create. Complete it in Salesforce.`, object });
+  const content = md.DeveloperName ? CONTENT_MARKERS[md.DeveloperName] : null;
+
+  // Content milestones (video/text/link) write a marker Task; other milestones use
+  // the CRM record template for the object their measure counts.
+  let object, record, marker = null;
+  if (content) {
+    object = 'Task';
+    marker = content.marker;
+    record = markerTask(me, marker);
+  } else {
+    object = md.SourceObjectApiName;
+    const tmpl = BRIDGE_TEMPLATES[object];
+    if (!tmpl) {
+      return res.status(422).json({ error: `The measure behind this exercise counts ${object || 'an object'}, which the web app can't create. Complete it in Salesforce.`, object });
+    }
+    record = tmpl.build(me);
   }
 
-  const record = tmpl.build(me);
   const result = await conn.sobject(object).create(record);
   if (!result.success) {
     return res.status(400).json({ error: 'Could not create the Salesforce record.', details: result.errors });
@@ -679,7 +716,7 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
   // Report the new live measure value so the UI can reflect the movement.
   let liveValue = null;
   try {
-    liveValue = await measureLiveValue(conn, me, { object, fn: md.AggregateFunction, field: md.AggregateFieldApiName });
+    liveValue = await measureLiveValue(conn, me, { object, fn: md.AggregateFunction, field: md.AggregateFieldApiName, marker });
   } catch (_) {}
 
   res.json({
