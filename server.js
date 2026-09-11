@@ -79,14 +79,14 @@ async function fetchProgramProgress(conn, me, programIds) {
   if (!programIds.length) return byProgram;
   const idList = programIds.map((id) => `'${id}'`).join(',');
   const result = await conn.query(
-    `SELECT LearningItem.EnablementProgramId, CompletedPercent, ProgressStatus
+    `SELECT LearningItem.EnablementProgramId, CompletedPercent, ProgressStatus, CompletedDate
      FROM LearningItemProgress
      WHERE OwnerId = '${me}'
        AND LearningItem.EnablementProgramId IN (${idList})`
   );
   for (const r of result.records) {
     const pid = r.LearningItem && r.LearningItem.EnablementProgramId;
-    if (pid) byProgram[pid] = { percent: r.CompletedPercent, status: r.ProgressStatus };
+    if (pid) byProgram[pid] = { percent: r.CompletedPercent, status: r.ProgressStatus, completedDate: r.CompletedDate || null };
   }
   return byProgram;
 }
@@ -255,7 +255,8 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
   const progByTask = {};
   try {
     const tp = await conn.query(
-      `SELECT EnblProgramTaskDefinitionId, IsCompleted, CompletedPercent, ProgressStatus
+      `SELECT EnblProgramTaskDefinitionId, IsCompleted, CompletedPercent, ProgressStatus,
+              DueDate, CompletedDateTime
        FROM EnblProgramTaskProgress
        WHERE EnblProgramTaskDefinition.EnablementProgramId = '${id}'
          AND LearningItemProgress.OwnerId = '${me}'`
@@ -265,15 +266,30 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
         isCompleted: r.IsCompleted,
         percent: r.CompletedPercent,
         status: r.ProgressStatus,
+        dueDate: r.DueDate || null,
+        completedDate: r.CompletedDateTime || null,
       };
     }
   } catch (_) {}
 
-  // Program-level progress (percent + status) for the drill-down status bar.
+  // Program-level progress (percent + status + completion date) plus the
+  // learner's due date (from their assignment) for the "Past due …" header.
   let programProgress = null;
   try {
     const pp = await fetchProgramProgress(conn, me, [id]);
     programProgress = pp[id] || null;
+  } catch (_) {}
+  try {
+    const asg = await conn.query(
+      `SELECT DueDate, StartDate FROM LearningItemAssignment
+       WHERE AssigneeId = '${me}' AND LearningItem.EnablementProgramId = '${id}'
+       LIMIT 1`
+    );
+    if (asg.records.length) {
+      programProgress = programProgress || {};
+      programProgress.dueDate = asg.records[0].DueDate || null;
+      programProgress.startDate = asg.records[0].StartDate || null;
+    }
   } catch (_) {}
 
   // Attach launchable video content to the program's video exercises. Preferred
@@ -385,9 +401,17 @@ function isVideoExercise(task) {
 // content here. Replace the value with the actual Salesforce content URL.
 const EXERCISE_CONTENT_URLS = {
   // "Quality Next-Gen Introductory Calls" (Supporting Clients With Generational
-  // Wealth Transfer). Placeholder → replace with the real Salesforce video URL.
-  '0kkHu000001DI3IIAW': 'https://www.youtube.com/watch?v=di6iwHhrH6s',
+  // Wealth Transfer). This is the exercise's real Salesforce content — the
+  // "Video Embed URL" configured on the exercise (a Vidyard clip, "Watch A
+  // Successful Next-Gen Discovery Call") — so the app plays what Salesforce plays.
+  '0kkHu000001DI3IIAW': 'https://play.vidyard.com/dYBe3SBNaAGKsUwrjiVxT5',
 };
+
+// Extract a Vidyard video id from a play.vidyard.com/share URL.
+function parseVidyardId(url) {
+  const m = String(url).match(/(?:play\.vidyard\.com|share\.vidyard\.com\/watch)\/([A-Za-z0-9]+)/);
+  return m ? m[1] : null;
+}
 
 // Extract a YouTube video id from any common YouTube URL form.
 function parseYouTubeId(url) {
@@ -401,16 +425,25 @@ function parseYouTubeId(url) {
 // embed url so they play inline; other URLs are returned as a link-out target.
 function videoFromUrl(url, title) {
   const yt = parseYouTubeId(url);
+  const vy = yt ? null : parseVidyardId(url);
   const isMp4 = /\.mp4($|\?)/i.test(url);
+  let type = 'Link';
+  if (yt) type = 'YouTube';
+  else if (vy) type = 'Vidyard';
+  else if (isMp4) type = 'MP4';
   return {
     Id: null,
     Title: title || 'Video',
-    Type: yt ? 'YouTube' : (isMp4 ? 'MP4' : 'Link'),
+    Type: type,
     YouTubeId: yt,
-    Url: yt ? null : url,
+    VidyardId: vy,
+    Url: (yt || vy) ? null : url,
     ContentUrl: url,
     Description: null,
-    embedUrl: yt ? `https://www.youtube.com/embed/${yt}` : null,
+    // embedUrl renders inline in an iframe: YouTube's /embed, or Vidyard's inline
+    // player (.html), which play.vidyard.com serves frame-embeddable.
+    embedUrl: yt ? `https://www.youtube.com/embed/${yt}`
+                 : (vy ? `https://play.vidyard.com/${vy}.html?disable_popouts=1&type=inline&autoplay=1` : null),
     thumbUrl: yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null,
   };
 }

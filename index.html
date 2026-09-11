@@ -1743,13 +1743,20 @@ function renderGCList() {
 }
 
 // ── Guidance Center drill-down: program detail (milestones & exercises) ──────
-function gcTaskMeta(sub) {
-  if (sub === 'ActionItem') return { label: 'Action Item', color: '#1a5fa8' };
-  if (sub === 'Document') return { label: 'Document', color: '#2E844A' };
-  if (sub === 'Video') return { label: 'Video', color: '#c0392b' };
-  if (sub === 'TextLesson') return { label: 'Lesson', color: '#0072CE' };
-  if (sub === 'OtherExercise') return { label: 'Other', color: '#7c3aed' };
-  return { label: sub || 'Exercise', color: '#6b7280' };
+// Category label + tile color + glyph, matching the Salesforce Guidance Center
+// tiles. Milestones (TaskCategory) render as an orange flag; every exercise type
+// uses the Salesforce blue tile with a type-specific glyph.
+function gcTaskMeta(task) {
+  var t = (typeof task === 'string') ? { TaskSubCategory: task } : (task || {});
+  var blue = '#0176D3', orange = '#EA7317';
+  if (t.TaskCategory === 'Milestone') return { label: 'Milestone', color: orange, glyph: '⚑' };
+  var sub = t.TaskSubCategory;
+  if (sub === 'ActionItem') return { label: 'Action Item', color: blue, glyph: '☑' };
+  if (sub === 'Document') return { label: 'Document', color: blue, glyph: '📄' };
+  if (sub === 'Video') return { label: 'Video', color: blue, glyph: '▶' };
+  if (sub === 'TextLesson') return { label: 'Lesson', color: blue, glyph: '🎓' };
+  if (sub === 'OtherExercise' || sub === 'Other') return { label: 'Other', color: blue, glyph: '🔗' };
+  return { label: sub || 'Exercise', color: blue, glyph: '•' };
 }
 
 // Map a Salesforce progress status to a display label + color. Covers both the
@@ -1776,14 +1783,27 @@ function gcStatusMeta(status) {
 // reload) and offer an "Open in Salesforce" link-out for real, engine-recorded
 // completion in the learner's own session.
 var GC_DONE_KEY = 'gc_local_done';
-function gcLocalDoneSet() {
-  try { return new Set(JSON.parse(localStorage.getItem(GC_DONE_KEY) || '[]')); }
-  catch (e) { return new Set(); }
+// Stored as { taskId: completedISO }. Tolerates the older array-of-ids format.
+function gcLocalDoneMap() {
+  try {
+    var raw = JSON.parse(localStorage.getItem(GC_DONE_KEY) || '{}');
+    if (Array.isArray(raw)) { var o = {}; raw.forEach(function(id) { o[id] = null; }); return o; }
+    return raw || {};
+  } catch (e) { return {}; }
 }
-function gcIsLocalDone(taskId) { return gcLocalDoneSet().has(taskId); }
+function gcIsLocalDone(taskId) { return Object.prototype.hasOwnProperty.call(gcLocalDoneMap(), taskId); }
+function gcLocalDoneDate(taskId) { var m = gcLocalDoneMap(); return m[taskId] || null; }
 function gcSetLocalDone(taskId) {
-  var s = gcLocalDoneSet(); s.add(taskId);
-  try { localStorage.setItem(GC_DONE_KEY, JSON.stringify(Array.from(s))); } catch (e) {}
+  var m = gcLocalDoneMap();
+  if (!(taskId in m)) m[taskId] = new Date().toISOString();
+  try { localStorage.setItem(GC_DONE_KEY, JSON.stringify(m)); } catch (e) {}
+}
+// Format a Salesforce date/datetime like the SF Guidance Center: "5/14/2026".
+function gcFmtDate(d) {
+  if (!d) return '';
+  var dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.toLocaleDateString('en-US');
 }
 // Effective completion = Salesforce reports it complete OR the user completed it
 // here in the panel.
@@ -1877,20 +1897,27 @@ function renderProgramDetail() {
   window._gcPctOverride = window._gcPctOverride || {};
   window._gcPctOverride[id] = { percent: pct, allDone: allProgramDone };
 
+  // Status line (left) + percent (right), matching the SF Guidance Center:
+  // "Completed <date>" (green) when done, "Past due <date>" (red) when overdue,
+  // else the plain status label.
   var head = el('div', 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;');
-  head.appendChild(el('span', 'font-size:12px;font-weight:700;color:' + sm.color + ';', sm.label));
+  var statusText, statusColor;
+  var progCompleted = mp.completedDate || (allProgramDone ? new Date().toISOString() : null);
+  var overdue = !allProgramDone && mp.dueDate && (new Date(mp.dueDate) < new Date());
+  if (allProgramDone) { statusText = 'Completed' + (progCompleted ? ' ' + gcFmtDate(progCompleted) : ''); statusColor = '#047857'; }
+  else if (overdue) { statusText = 'Past due ' + gcFmtDate(mp.dueDate); statusColor = '#c23934'; }
+  else { statusText = sm.label; statusColor = sm.color; }
+  head.appendChild(el('span', 'font-size:12px;font-weight:700;color:' + statusColor + ';', statusText));
   head.appendChild(el('span', 'font-size:12px;font-weight:700;color:#111827;', pct + '%'));
   nodes.push(head);
-  var bar = el('div', 'background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;');
-  bar.appendChild(el('div', 'background:' + sm.color + ';height:100%;width:' + pct + '%;border-radius:4px;'));
+  var bar = el('div', 'background:#e5e7eb;border-radius:10px;height:8px;overflow:hidden;margin-bottom:8px;');
+  bar.appendChild(el('div', 'background:' + (overdue ? '#c23934' : sm.color) + ';height:100%;width:' + pct + '%;border-radius:10px;'));
   nodes.push(bar);
-  var meta = el('div', 'display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:2px;');
-  meta.appendChild(el('span', '', (prog.TotalDays ? prog.TotalDays + '-day program' : (prog.Type || 'Enablement'))));
-  meta.appendChild(el('span', '', doneTasks + ' of ' + (data.taskCount != null ? data.taskCount : totalTasks) + ' exercises'));
+  // SF program summary: "Milestones: N · Exercises: M · Days: D".
+  var meta = el('div', 'font-size:11px;color:#6b7280;margin-bottom:2px;',
+    'Milestones: ' + sections.length + '  ·  Exercises: ' + (data.taskCount != null ? data.taskCount : totalTasks) + (prog.TotalDays ? '  ·  Days: ' + prog.TotalDays : ''));
   nodes.push(meta);
   nodes.push(el('div', 'border-top:1px solid #e5e7eb;margin:12px 0;'));
-
-  nodes.push(el('div', 'font-weight:600;font-size:13px;color:#111827;margin-bottom:10px;', 'Milestones & Exercises'));
 
   if (!sections.length) {
     nodes.push(el('div', 'font-size:11px;color:#6b7280;', 'No milestones defined for this program.'));
@@ -1898,14 +1925,19 @@ function renderProgramDetail() {
   sections.forEach(function(s) {
     var doneCount = s.tasks.filter(gcTaskDone).length;
     var allDone = s.tasks.length > 0 && doneCount === s.tasks.length;
-    var ms = el('div', 'margin-bottom:10px;');
-    var hdr = el('div', 'display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;');
-    var chev = el('span', 'font-size:10px;color:#6b7280;width:14px;flex-shrink:0;', '▼');
+    var ms = el('div', 'margin-bottom:14px;');
+    var hdr = el('div', 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;');
+    var chev = el('span', 'font-size:11px;color:#6b7280;width:12px;flex-shrink:0;', '▼');
     hdr.appendChild(chev);
-    // Milestone completion ring — filled green when every exercise is done.
-    var ring = el('div', 'width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;' + (allDone ? 'background:#047857;border:2px solid #047857;' : 'border:2px solid #d1d5db;'), allDone ? '✓' : '');
+    // Section completion ring — a proportional blue arc (SF Guidance Center),
+    // full green with a check when every exercise is done.
+    var frac = s.tasks.length ? doneCount / s.tasks.length : 0;
+    var deg = Math.round(frac * 360);
+    var ringColor = allDone ? '#2e844a' : '#0176D3';
+    var ring = el('div', 'position:relative;width:26px;height:26px;border-radius:50%;flex-shrink:0;background:conic-gradient(' + ringColor + ' ' + deg + 'deg, #e5e7eb 0);');
+    ring.appendChild(el('div', 'position:absolute;inset:3px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:' + ringColor + ';', allDone ? '✓' : ''));
     hdr.appendChild(ring);
-    hdr.appendChild(el('span', 'font-weight:600;font-size:13px;color:#111827;', (s.Name || '') + '  (' + doneCount + '/' + s.tasks.length + ')'));
+    hdr.appendChild(el('span', 'font-weight:700;font-size:15px;color:#111827;', (s.Name || '') + ' (' + s.tasks.length + ')'));
     var bodyMs = el('div', 'padding-left:22px;margin-top:6px;');
     hdr.onclick = function() {
       var hidden = bodyMs.style.display === 'none';
@@ -1913,31 +1945,58 @@ function renderProgramDetail() {
       chev.textContent = hidden ? '▼' : '▶';
     };
     s.tasks.forEach(function(t, ti) {
-      if (ti > 0) bodyMs.appendChild(el('div', 'border-top:1px solid #f3f4f6;margin:6px 0;'));
-      var meta2 = gcTaskMeta(t.TaskSubCategory);
+      if (ti > 0) bodyMs.appendChild(el('div', 'border-top:1px solid #e5e7eb;'));
+      var meta2 = gcTaskMeta(t);
       var tp = t.progress || {};
       var done = gcTaskDone(t);
-      var localDone = !((tp.isCompleted)) && gcIsLocalDone(t.Id);
-      var ex = el('div', 'display:flex;gap:10px;align-items:flex-start;padding:8px 0;');
-      // Icon tile: green check when the exercise is completed, else the day.
-      ex.appendChild(el('div', 'width:34px;height:34px;border-radius:6px;background:' + (done ? '#047857' : meta2.color) + ';color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;', done ? '✓' : ('' + (t.Day ? 'D' + t.Day : '•'))));
-      var info = el('div', 'flex:1;min-width:0;');
-      var labelRow = el('div', 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;');
-      labelRow.appendChild(el('span', 'font-size:10px;color:#6b7280;', meta2.label));
-      // Status chip: prefer Salesforce status; if only completed locally, show it.
-      var chipStatus = tp.status || (localDone ? 'Completed' : null);
-      if (chipStatus) {
-        var esm = gcStatusMeta(chipStatus);
-        labelRow.appendChild(el('span', 'font-size:9px;font-weight:600;color:' + esm.color + ';background:' + esm.color + '1a;border-radius:8px;padding:1px 6px;', esm.label));
-      }
-      if (localDone) {
-        labelRow.appendChild(el('span', 'font-size:9px;color:#9ca3af;font-style:italic;', '(in this app)'));
-      }
-      info.appendChild(labelRow);
-      info.appendChild(el('div', 'font-weight:700;font-size:12px;color:#111827;line-height:1.3;', t.Name || ''));
-      if (t.Description) info.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin:2px 0;', t.Description));
+      var localDone = !(tp.isCompleted) && gcIsLocalDone(t.Id);
+      var ex = el('div', 'display:flex;gap:14px;align-items:flex-start;padding:14px 0;');
 
-      var actions = el('div', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;');
+      // Icon tile (category color + glyph) with a green corner check badge when
+      // the exercise is complete — matching the Salesforce Guidance Center.
+      var tile = el('div', 'position:relative;flex-shrink:0;');
+      tile.appendChild(el('div', 'width:44px;height:44px;border-radius:8px;background:' + meta2.color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;', meta2.glyph));
+      if (done) {
+        tile.appendChild(el('div', 'position:absolute;top:-5px;right:-5px;width:19px;height:19px;border-radius:50%;background:#2e844a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid #fff;box-sizing:border-box;', '✓'));
+      }
+      ex.appendChild(tile);
+
+      var info = el('div', 'flex:1;min-width:0;');
+      info.appendChild(el('div', 'font-size:12px;color:#5c5c5c;margin-bottom:1px;', meta2.label));
+      info.appendChild(el('div', 'font-weight:700;font-size:15px;color:#181818;line-height:1.3;', t.Name || ''));
+
+      // Description with a "Show More"/"Show Less" toggle (2-line clamp), as in SF.
+      if (t.Description) {
+        var clampStyle = 'font-size:13px;color:#3e3e3c;line-height:1.45;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;';
+        var fullStyle = 'font-size:13px;color:#3e3e3c;line-height:1.45;margin-top:3px;';
+        var dtext = el('div', clampStyle, t.Description);
+        info.appendChild(dtext);
+        if ((t.Description || '').length > 85) {
+          var toggle = el('span', 'display:inline-block;color:#0176D3;font-size:13px;font-weight:600;cursor:pointer;margin-top:1px;', 'Show More');
+          var expanded = false;
+          toggle.onclick = function(e) {
+            e.stopPropagation();
+            expanded = !expanded;
+            dtext.setAttribute('style', expanded ? fullStyle : clampStyle);
+            toggle.textContent = expanded ? 'Show Less' : 'Show More';
+          };
+          info.appendChild(toggle);
+        }
+      }
+
+      // Completion / due-date line (SF shows "Completed 5/14/2026" or "Past due …").
+      var doneDate = tp.completedDate || (localDone ? gcLocalDoneDate(t.Id) : null);
+      var exOverdue = !done && tp.dueDate && (new Date(tp.dueDate) < new Date());
+      var statusLine = null;
+      if (done) {
+        statusLine = el('div', 'font-size:12px;color:#5c5c5c;', 'Completed' + (doneDate ? ' ' + gcFmtDate(doneDate) : '') + (localDone ? '  ·  in this app' : ''));
+      } else if (exOverdue) {
+        statusLine = el('div', 'font-size:12px;color:#c23934;font-weight:600;', 'Past due ' + gcFmtDate(tp.dueDate));
+      } else if (tp.dueDate) {
+        statusLine = el('div', 'font-size:12px;color:#5c5c5c;', 'Due ' + gcFmtDate(tp.dueDate));
+      }
+
+      var actions = el('div', 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;');
       if (t.video) {
         var watch = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;border-radius:6px;background:#0072CE;color:#fff;font-size:11px;font-weight:600;cursor:pointer;', '');
         watch.appendChild(el('span', 'font-size:10px;', '▶'));
@@ -1969,7 +2028,13 @@ function renderProgramDetail() {
         open.onclick = function(ev) { ev.stopPropagation(); };
         actions.appendChild(open);
       }
-      if (actions.childNodes.length) info.appendChild(actions);
+      // Footer: app actions on the left, SF-style completion/due date on the right.
+      if (actions.childNodes.length || statusLine) {
+        var footer = el('div', 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px;');
+        footer.appendChild(actions);
+        footer.appendChild(statusLine || el('span', ''));
+        info.appendChild(footer);
+      }
 
       ex.appendChild(info);
       bodyMs.appendChild(ex);
@@ -2060,38 +2125,46 @@ function openVideoModal(v, onComplete) {
   }
 
   var ytId = v.YouTubeId || null;
+  if (!ytId && v.embedUrl && /youtube\.com|youtu\.be/.test(v.embedUrl)) {
+    var mm = String(v.embedUrl).match(/embed\/([A-Za-z0-9_-]{11})/);
+    if (mm) ytId = mm[1];
+  }
+  var isYouTube = !!ytId;
+  // A non-YouTube embeddable player (e.g. the exercise's Vidyard clip).
+  var genericEmbed = !isYouTube && !isMp4 && v.embedUrl;
   var player;
-  if (v.embedUrl || ytId) {
-    // Use the IFrame API (enablejsapi) so we can detect the ENDED state and
+  if (isYouTube) {
+    // YouTube IFrame API (enablejsapi) so we can detect the ENDED state and
     // auto-complete. Fall back to a plain iframe if the API can't be reached.
-    if (!ytId && v.embedUrl) {
-      var m = String(v.embedUrl).match(/embed\/([A-Za-z0-9_-]{11})/);
-      if (m) ytId = m[1];
-    }
     var host = el('div', 'width:100%;height:100%;');
     host.id = 'yt-player-host';
-    player = host;
+    stage.replaceChildren(host);
+    loadYouTubeAPI(function() {
+      try {
+        window._ytPlayer = new YT.Player('yt-player-host', {
+          videoId: ytId,
+          playerVars: { autoplay: 1, rel: 0 },
+          events: {
+            onStateChange: function(e) { if (e && e.data === 0) complete(true); } // 0 = ENDED
+          }
+        });
+      } catch (err) {
+        var f = el('iframe', 'width:100%;height:100%;border:0;display:block;');
+        f.setAttribute('src', 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0');
+        f.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
+        f.setAttribute('allowfullscreen', 'true');
+        stage.replaceChildren(f);
+      }
+    });
+  } else if (genericEmbed) {
+    // Vidyard (or other) inline player. No end-detection here, so completion is
+    // via the "Mark complete" footer control.
+    player = el('iframe', 'width:100%;height:100%;border:0;display:block;');
+    player.setAttribute('src', v.embedUrl);
+    player.setAttribute('title', v.Title || 'Video');
+    player.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+    player.setAttribute('allowfullscreen', 'true');
     stage.replaceChildren(player);
-    if (ytId) {
-      loadYouTubeAPI(function() {
-        try {
-          window._ytPlayer = new YT.Player('yt-player-host', {
-            videoId: ytId,
-            playerVars: { autoplay: 1, rel: 0 },
-            events: {
-              onStateChange: function(e) { if (e && e.data === 0) complete(true); } // 0 = ENDED
-            }
-          });
-        } catch (err) {
-          // Fallback: plain embedded iframe (no end-detection).
-          var f = el('iframe', 'width:100%;height:100%;border:0;display:block;');
-          f.setAttribute('src', 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0');
-          f.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
-          f.setAttribute('allowfullscreen', 'true');
-          stage.replaceChildren(f);
-        }
-      });
-    }
   } else if (isMp4 && v.Url) {
     player = el('video', 'width:100%;height:100%;background:#000;display:block;');
     player.setAttribute('src', v.Url);
