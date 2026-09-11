@@ -1078,7 +1078,8 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
         <button onclick="closeVideoModal()" title="Close" style="background:none;border:none;color:#e5e7eb;font-size:18px;cursor:pointer;line-height:1;">✕</button>
       </div>
       <div id="video-modal-stage" style="position:relative;width:100%;aspect-ratio:16/9;background:#000;"></div>
-      <div id="video-modal-desc" style="color:#cbd5e1;font-size:12px;line-height:1.5;padding:10px 14px;flex-shrink:0;"></div>
+      <div id="video-modal-desc" style="color:#cbd5e1;font-size:12px;line-height:1.5;padding:10px 14px 0;flex-shrink:0;"></div>
+      <div id="video-modal-footer" style="display:none;align-items:center;gap:10px;padding:10px 14px 14px;flex-shrink:0;"></div>
     </div>
   </div>
 
@@ -1654,11 +1655,27 @@ async function loadGuidanceCenter() {
   if (!Array.isArray(programs)) programs = [];
   if (!Array.isArray(measures)) measures = [];
 
-  // Keep the raw records so the drill-down views can read them by Id.
+  // Keep the raw records so the drill-down views (and re-renders after local
+  // completion) can read them by Id without re-fetching.
+  window._gcProgramList = programs;
+  window._gcMeasureList = measures;
   window._gcPrograms = {};
   window._gcMeasures = {};
   programs.forEach(function(p) { window._gcPrograms[p.Id] = p; });
   measures.forEach(function(m) { window._gcMeasures[m.Id] = m; });
+
+  renderGCList();
+}
+
+// Render the Guidance Center list from the cached program/measure arrays. A
+// per-program local-completion override (window._gcPctOverride) bumps a card's
+// percent/status when exercises are completed in the panel.
+function renderGCList() {
+  var body = document.getElementById('gc-list-body');
+  if (!body) return;
+  var programs = window._gcProgramList || [];
+  var measures = window._gcMeasureList || [];
+  var override = window._gcPctOverride || {};
 
   var nodes = [];
 
@@ -1682,9 +1699,13 @@ async function loadGuidanceCenter() {
       card.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin-bottom:6px;', desc));
     }
 
-    // Real learner progress from Salesforce (LearningItemProgress).
-    var sm = gcStatusMeta(p.MyProgressStatus || p.MyEnrollmentStatus);
-    var pct = (p.MyProgressPercent != null) ? Math.round(p.MyProgressPercent) : (sm.label === 'Completed' ? 100 : 0);
+    // Real learner progress from Salesforce (LearningItemProgress), bumped by any
+    // local (panel) completions recorded for this program in this session.
+    var ov = override[p.Id];
+    var statusStr = (ov && ov.allDone) ? 'Completed' : (p.MyProgressStatus || p.MyEnrollmentStatus);
+    var sm = gcStatusMeta(statusStr);
+    var basePct = (p.MyProgressPercent != null) ? Math.round(p.MyProgressPercent) : (sm.label === 'Completed' ? 100 : 0);
+    var pct = ov ? Math.max(basePct, ov.percent) : basePct;
     var metaRow = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;');
     metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : (p.Type || 'Enablement program')) + ' · ' + pct + '%'));
     metaRow.appendChild(el('span', 'font-size:11px;font-weight:600;color:' + sm.color + ';', sm.label));
@@ -1745,6 +1766,58 @@ function gcStatusMeta(status) {
   return { label: s || '—', color: gray };
 }
 
+// ── Guidance Center: local (demo) completion ─────────────────────────────────
+// The Salesforce runtime engine records completion ONLY when the enrolled
+// learner performs the action inside their own authenticated Salesforce session
+// — the content cannot be framed (Salesforce sends X-Frame-Options: DENY), and
+// this app talks to Salesforce through a single server-side integration user.
+// So completing an action here is a local, UI-only reflection: we persist the
+// completed exercise Ids in localStorage (so checkmarks/progress survive a
+// reload) and offer an "Open in Salesforce" link-out for real, engine-recorded
+// completion in the learner's own session.
+var GC_DONE_KEY = 'gc_local_done';
+function gcLocalDoneSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(GC_DONE_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function gcIsLocalDone(taskId) { return gcLocalDoneSet().has(taskId); }
+function gcSetLocalDone(taskId) {
+  var s = gcLocalDoneSet(); s.add(taskId);
+  try { localStorage.setItem(GC_DONE_KEY, JSON.stringify(Array.from(s))); } catch (e) {}
+}
+// Effective completion = Salesforce reports it complete OR the user completed it
+// here in the panel.
+function gcTaskDone(t) {
+  return !!(t && ((t.progress && t.progress.isCompleted) || gcIsLocalDone(t.Id)));
+}
+
+// Lazy-load the YouTube IFrame API once, so we can detect when a video ends and
+// auto-mark the exercise complete.
+var _ytApiReady = false, _ytApiLoading = false, _ytApiCallbacks = [];
+function loadYouTubeAPI(cb) {
+  if (_ytApiReady) { cb(); return; }
+  _ytApiCallbacks.push(cb);
+  if (_ytApiLoading) return;
+  _ytApiLoading = true;
+  window.onYouTubeIframeAPIReady = function() {
+    _ytApiReady = true;
+    var cbs = _ytApiCallbacks; _ytApiCallbacks = [];
+    cbs.forEach(function(f) { try { f(); } catch (e) {} });
+  };
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+
+// Mark a program exercise complete locally, then reflect it live: re-render the
+// open program detail and its Guidance Center list card.
+function markTaskComplete(taskId) {
+  if (!taskId || gcIsLocalDone(taskId)) return;
+  gcSetLocalDone(taskId);
+  if (window._gcDetail) renderProgramDetail();
+  renderGCList();
+}
+
 async function openProgramDetail(id) {
   var panel = document.getElementById('gc-detail');
   var body = document.getElementById('gc-detail-body');
@@ -1758,9 +1831,26 @@ async function openProgramDetail(id) {
   var data = null;
   try { data = await fetch('/api/programs/' + encodeURIComponent(id)).then(function(r){ return r.json(); }); } catch (e) {}
   if (!data || data.error) {
+    window._gcDetail = null;
     body.replaceChildren(el('div', 'padding:16px;color:#dc2626;font-size:12px;', 'Could not load program: ' + ((data && data.error) || 'error')));
     return;
   }
+  // Cache the loaded detail so it can be re-rendered live after a local completion.
+  window._gcDetail = { id: id, data: data };
+  renderProgramDetail();
+}
+
+// Render the currently-open program detail from window._gcDetail. Completion is
+// "effective" — Salesforce-reported OR completed here in the panel — so the
+// checkmarks, milestone counts, ring, and status bar update live, and the
+// program's list card percent is bumped via window._gcPctOverride.
+function renderProgramDetail() {
+  var det = window._gcDetail;
+  if (!det) return;
+  var body = document.getElementById('gc-detail-body');
+  if (!body) return;
+  var id = det.id, data = det.data;
+  var p = window._gcPrograms[id] || {};
   var prog = data.program || p;
   var sections = data.sections || [];
   var nodes = [];
@@ -1768,10 +1858,25 @@ async function openProgramDetail(id) {
   nodes.push(el('h3', 'font-size:16px;font-weight:700;color:#111827;margin:0 0 8px;line-height:1.3;', prog.Name || ''));
   if (prog.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;', prog.Description));
 
-  // Real learner progress from Salesforce.
+  // Effective learner progress: count every exercise the learner has completed
+  // (Salesforce or in-panel) across the whole program.
+  var allTasks = [];
+  sections.forEach(function(s) { (s.tasks || []).forEach(function(t) { allTasks.push(t); }); });
+  var totalTasks = allTasks.length;
+  var doneTasks = allTasks.filter(gcTaskDone).length;
+  var effPct = totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0;
+
   var mp = data.myProgress || {};
-  var sm = gcStatusMeta(mp.status || p.MyProgressStatus || p.MyEnrollmentStatus);
-  var pct = (mp.percent != null) ? Math.round(mp.percent) : (sm.label === 'Completed' ? 100 : 0);
+  var sfPct = (mp.percent != null) ? Math.round(mp.percent) : 0;
+  var pct = Math.max(sfPct, effPct);
+  var allProgramDone = totalTasks > 0 && doneTasks === totalTasks;
+  var sm = gcStatusMeta(allProgramDone ? 'Completed' : (mp.status || p.MyProgressStatus || p.MyEnrollmentStatus));
+  if (pct === 100 && sm.label !== 'Completed') sm = gcStatusMeta('Completed');
+
+  // Record the override so the Guidance Center list card reflects this too.
+  window._gcPctOverride = window._gcPctOverride || {};
+  window._gcPctOverride[id] = { percent: pct, allDone: allProgramDone };
+
   var head = el('div', 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;');
   head.appendChild(el('span', 'font-size:12px;font-weight:700;color:' + sm.color + ';', sm.label));
   head.appendChild(el('span', 'font-size:12px;font-weight:700;color:#111827;', pct + '%'));
@@ -1781,7 +1886,7 @@ async function openProgramDetail(id) {
   nodes.push(bar);
   var meta = el('div', 'display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:2px;');
   meta.appendChild(el('span', '', (prog.TotalDays ? prog.TotalDays + '-day program' : (prog.Type || 'Enablement'))));
-  meta.appendChild(el('span', '', data.taskCount + ' exercises'));
+  meta.appendChild(el('span', '', doneTasks + ' of ' + (data.taskCount != null ? data.taskCount : totalTasks) + ' exercises'));
   nodes.push(meta);
   nodes.push(el('div', 'border-top:1px solid #e5e7eb;margin:12px 0;'));
 
@@ -1791,7 +1896,7 @@ async function openProgramDetail(id) {
     nodes.push(el('div', 'font-size:11px;color:#6b7280;', 'No milestones defined for this program.'));
   }
   sections.forEach(function(s) {
-    var doneCount = s.tasks.filter(function(t) { return t.progress && t.progress.isCompleted; }).length;
+    var doneCount = s.tasks.filter(gcTaskDone).length;
     var allDone = s.tasks.length > 0 && doneCount === s.tasks.length;
     var ms = el('div', 'margin-bottom:10px;');
     var hdr = el('div', 'display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;');
@@ -1811,27 +1916,61 @@ async function openProgramDetail(id) {
       if (ti > 0) bodyMs.appendChild(el('div', 'border-top:1px solid #f3f4f6;margin:6px 0;'));
       var meta2 = gcTaskMeta(t.TaskSubCategory);
       var tp = t.progress || {};
-      var done = !!tp.isCompleted;
+      var done = gcTaskDone(t);
+      var localDone = !((tp.isCompleted)) && gcIsLocalDone(t.Id);
       var ex = el('div', 'display:flex;gap:10px;align-items:flex-start;padding:8px 0;');
       // Icon tile: green check when the exercise is completed, else the day.
       ex.appendChild(el('div', 'width:34px;height:34px;border-radius:6px;background:' + (done ? '#047857' : meta2.color) + ';color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;', done ? '✓' : ('' + (t.Day ? 'D' + t.Day : '•'))));
       var info = el('div', 'flex:1;min-width:0;');
       var labelRow = el('div', 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;');
       labelRow.appendChild(el('span', 'font-size:10px;color:#6b7280;', meta2.label));
-      if (tp.status) {
-        var esm = gcStatusMeta(tp.status);
+      // Status chip: prefer Salesforce status; if only completed locally, show it.
+      var chipStatus = tp.status || (localDone ? 'Completed' : null);
+      if (chipStatus) {
+        var esm = gcStatusMeta(chipStatus);
         labelRow.appendChild(el('span', 'font-size:9px;font-weight:600;color:' + esm.color + ';background:' + esm.color + '1a;border-radius:8px;padding:1px 6px;', esm.label));
+      }
+      if (localDone) {
+        labelRow.appendChild(el('span', 'font-size:9px;color:#9ca3af;font-style:italic;', '(in this app)'));
       }
       info.appendChild(labelRow);
       info.appendChild(el('div', 'font-weight:700;font-size:12px;color:#111827;line-height:1.3;', t.Name || ''));
       if (t.Description) info.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin:2px 0;', t.Description));
+
+      var actions = el('div', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;');
       if (t.video) {
-        var watch = el('button', 'display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:5px 10px;border:none;border-radius:6px;background:#0072CE;color:#fff;font-size:11px;font-weight:600;cursor:pointer;', '');
+        var watch = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;border-radius:6px;background:#0072CE;color:#fff;font-size:11px;font-weight:600;cursor:pointer;', '');
         watch.appendChild(el('span', 'font-size:10px;', '▶'));
-        watch.appendChild(el('span', '', 'Watch video'));
-        (function(v) { watch.onclick = function(e) { e.stopPropagation(); openVideoModal(v); }; })(t.video);
-        info.appendChild(watch);
+        watch.appendChild(el('span', '', done ? 'Re-watch video' : 'Watch video'));
+        (function(v, taskId) {
+          watch.onclick = function(e) {
+            e.stopPropagation();
+            // Watching the video (to the end, or via "Mark complete") completes it.
+            openVideoModal(v, function() { markTaskComplete(taskId); });
+          };
+        })(t.video, t.Id);
+        actions.appendChild(watch);
+      } else if (!done) {
+        // Non-video exercises: an explicit "done in the panel" action.
+        var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:11px;font-weight:600;cursor:pointer;', '✓ Mark complete');
+        (function(taskId) { mark.onclick = function(e) { e.stopPropagation(); markTaskComplete(taskId); }; })(t.Id);
+        actions.appendChild(mark);
       }
+      // Link-out to Salesforce — the only path where the runtime engine actually
+      // records completion (in the learner's own authenticated session).
+      if (data.instanceUrl) {
+        var open = el('a', 'display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#0072CE;text-decoration:none;');
+        open.appendChild(el('span', '', 'Complete in Salesforce'));
+        open.appendChild(el('span', 'font-size:10px;', '↗'));
+        open.setAttribute('href', data.instanceUrl);
+        open.setAttribute('target', '_blank');
+        open.setAttribute('rel', 'noopener');
+        open.setAttribute('title', 'Opens the Guidance Center in Salesforce, where completing it is recorded for real.');
+        open.onclick = function(ev) { ev.stopPropagation(); };
+        actions.appendChild(open);
+      }
+      if (actions.childNodes.length) info.appendChild(actions);
+
       ex.appendChild(info);
       bodyMs.appendChild(ex);
     });
@@ -1891,13 +2030,26 @@ function closeGCDetail() {
 // ── Video player modal ───────────────────────────────────────────────────────
 // Launches program video content in a modal overlay. YouTube videos play in an
 // embed iframe; MP4 content plays in a native <video> element.
-function openVideoModal(v) {
+// onComplete (optional): fired once when the video is watched to the end or the
+// user clicks "Mark complete" — used to mark the linked program exercise done.
+function openVideoModal(v, onComplete) {
   if (!v) return;
   var modal = document.getElementById('video-modal');
   var stage = document.getElementById('video-modal-stage');
   var titleEl = document.getElementById('video-modal-title');
+  var footer = document.getElementById('video-modal-footer');
   if (!modal || !stage) return;
   titleEl.textContent = v.Title || 'Video';
+
+  // Fire the completion callback at most once, and reflect it in the footer.
+  var completed = false;
+  function complete(fromEnd) {
+    if (completed) return;
+    completed = true;
+    if (typeof onComplete === 'function') { try { onComplete(); } catch (e) {} }
+    renderVideoFooter();
+  }
+  window._ytPlayer = null;
 
   var isMp4 = (v.Type === 'MP4') || /\.mp4($|\?)/i.test(v.Url || '');
   // A plain external link can't be embedded reliably (X-Frame-Options) — open it
@@ -1907,33 +2059,82 @@ function openVideoModal(v) {
     return;
   }
 
+  var ytId = v.YouTubeId || null;
   var player;
-  if (v.embedUrl || v.YouTubeId) {
-    var src = v.embedUrl || ('https://www.youtube.com/embed/' + v.YouTubeId);
-    player = el('iframe', 'width:100%;height:100%;border:0;display:block;');
-    player.setAttribute('src', src + (src.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1&rel=0');
-    player.setAttribute('title', v.Title || 'Video');
-    player.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
-    player.setAttribute('allowfullscreen', 'true');
+  if (v.embedUrl || ytId) {
+    // Use the IFrame API (enablejsapi) so we can detect the ENDED state and
+    // auto-complete. Fall back to a plain iframe if the API can't be reached.
+    if (!ytId && v.embedUrl) {
+      var m = String(v.embedUrl).match(/embed\/([A-Za-z0-9_-]{11})/);
+      if (m) ytId = m[1];
+    }
+    var host = el('div', 'width:100%;height:100%;');
+    host.id = 'yt-player-host';
+    player = host;
+    stage.replaceChildren(player);
+    if (ytId) {
+      loadYouTubeAPI(function() {
+        try {
+          window._ytPlayer = new YT.Player('yt-player-host', {
+            videoId: ytId,
+            playerVars: { autoplay: 1, rel: 0 },
+            events: {
+              onStateChange: function(e) { if (e && e.data === 0) complete(true); } // 0 = ENDED
+            }
+          });
+        } catch (err) {
+          // Fallback: plain embedded iframe (no end-detection).
+          var f = el('iframe', 'width:100%;height:100%;border:0;display:block;');
+          f.setAttribute('src', 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0');
+          f.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture');
+          f.setAttribute('allowfullscreen', 'true');
+          stage.replaceChildren(f);
+        }
+      });
+    }
   } else if (isMp4 && v.Url) {
     player = el('video', 'width:100%;height:100%;background:#000;display:block;');
     player.setAttribute('src', v.Url);
     player.setAttribute('controls', 'true');
     player.setAttribute('autoplay', 'true');
+    player.addEventListener('ended', function() { complete(true); });
+    stage.replaceChildren(player);
   } else {
     player = el('div', 'color:#e5e7eb;padding:24px;text-align:center;font-size:13px;', 'This video has no playable source.');
+    stage.replaceChildren(player);
   }
-  stage.replaceChildren(player);
 
   var descEl = document.getElementById('video-modal-desc');
   if (descEl) descEl.textContent = v.Description || '';
+
+  // Footer: a "Mark complete" control (guaranteed path) that flips to a confirmed
+  // state once done. Only shown when a completion callback was supplied.
+  function renderVideoFooter() {
+    if (!footer) return;
+    if (typeof onComplete !== 'function') { footer.style.display = 'none'; footer.replaceChildren(); return; }
+    footer.style.display = 'flex';
+    if (completed) {
+      footer.replaceChildren(el('span', 'display:inline-flex;align-items:center;gap:6px;color:#34d399;font-size:12px;font-weight:600;', '✓ Marked complete in this app'));
+    } else {
+      var btn = el('button', 'padding:6px 12px;border:none;border-radius:6px;background:#047857;color:#fff;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
+      btn.onclick = function() { complete(false); };
+      footer.replaceChildren(btn);
+      footer.appendChild(el('span', 'color:#94a3b8;font-size:11px;', 'Finishing the video marks it automatically.'));
+    }
+  }
+  renderVideoFooter();
+
   modal.style.display = 'flex';
 }
 
 function closeVideoModal() {
   var modal = document.getElementById('video-modal');
   var stage = document.getElementById('video-modal-stage');
+  var footer = document.getElementById('video-modal-footer');
+  if (window._ytPlayer && window._ytPlayer.destroy) { try { window._ytPlayer.destroy(); } catch (e) {} }
+  window._ytPlayer = null;
   if (stage) stage.replaceChildren(); // stop playback by removing the player
+  if (footer) { footer.replaceChildren(); footer.style.display = 'none'; }
   if (modal) modal.style.display = 'none';
 }
 

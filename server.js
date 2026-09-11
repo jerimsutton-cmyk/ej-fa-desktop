@@ -310,7 +310,14 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
     tasks: tasksBySection[s.Id] || [],
   }));
 
-  res.json({ program, sections, taskCount: taskResult.records.length, myProgress: programProgress });
+  // The org's Lightning base URL, so the front end can build a "complete this in
+  // Salesforce" link-out (the only path where the runtime engine records
+  // completion — it must happen in the learner's own authenticated session; the
+  // content cannot be framed, as Salesforce sends X-Frame-Options: DENY).
+  let instanceUrl = null;
+  try { instanceUrl = conn.instanceUrl || null; } catch (_) {}
+
+  res.json({ program, sections, taskCount: taskResult.records.length, myProgress: programProgress, instanceUrl });
 }));
 
 // ── Video content (Product_Video__c) ────────────────────────────────────────
