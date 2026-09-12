@@ -958,6 +958,8 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 </div>
 </div>
 <div style="flex:1;overflow-y:auto;padding:8px;">
+<!-- Overdue program milestones (rendered from live Enablement data) -->
+<div id="alerts-overdue"></div>
 <!-- Emma Johnson -->
 <div style="padding:8px;border-radius:8px;margin-bottom:6px;background:#f9fafb;border:1px solid #e5e7eb;cursor:pointer;">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
@@ -1586,7 +1588,7 @@ function switchDashPanel(mode) {
   var tabGuidance = document.getElementById('tab-guidance');
   var on = 'color:#1a5fa8;background:#eff6ff;';   // active tab highlight
   var off = 'color:#6b7280;';                     // inactive tab
-  var base = 'padding:6px;border-radius:6px;cursor:pointer;';
+  var base = 'padding:6px;border-radius:6px;cursor:pointer;position:relative;';
   var guidanceMode = (mode !== 'alerts');
   if (alerts) alerts.style.display = guidanceMode ? 'none' : '';
   if (guidance) guidance.style.display = guidanceMode ? '' : 'none';
@@ -1857,6 +1859,110 @@ async function loadGuidanceCenter() {
   measures.forEach(function(m) { window._gcMeasures[m.Id] = m; });
 
   renderGCList();
+  // Scan the enrolled programs for overdue milestones and surface them as
+  // alerts (fire-and-forget; renders when it finishes).
+  loadOverdueMilestones();
+}
+
+// ── Overdue milestones → Alerts panel ────────────────────────────────────────
+// Scan every enrolled program's exercises for any that are past their due date
+// and not yet complete, and surface each as its own card in the Alerts panel.
+// Clicking a card opens the EJ Enablement Programs panel at that milestone.
+async function loadOverdueMilestones() {
+  var programs = window._gcProgramList || [];
+  var overdue = [];
+  var now = new Date();
+  window._gcDetailCache = window._gcDetailCache || {};
+  for (var i = 0; i < programs.length; i++) {
+    var p = programs[i];
+    var data = null;
+    try { data = await fetch('/api/programs/' + encodeURIComponent(p.Id)).then(function(r){ return r.json(); }); } catch (e) {}
+    if (!data || data.error || !Array.isArray(data.sections)) continue;
+    // Cache so opening the program from an alert is instant.
+    window._gcDetailCache[p.Id] = data;
+    var pName = (data.program && data.program.Name) || p.Name || 'Program';
+    data.sections.forEach(function(s) {
+      (s.tasks || []).forEach(function(t) {
+        var tp = t.progress || {};
+        if (!gcTaskDone(t) && tp.dueDate && new Date(tp.dueDate) < now) {
+          overdue.push({
+            programId: p.Id, programName: pName,
+            taskId: t.Id, taskName: t.Name || 'Milestone',
+            sectionName: s.Name || '', dueDate: tp.dueDate, meta: gcTaskMeta(t),
+          });
+        }
+      });
+    });
+  }
+  overdue.sort(function(a, b) { return new Date(a.dueDate) - new Date(b.dueDate); });
+  window._gcOverdue = overdue;
+  renderOverdueAlerts();
+}
+
+// Build the overdue notification banner + one card per overdue milestone into
+// the Alerts panel, and reflect the count as a badge on the Alerts tab.
+function renderOverdueAlerts() {
+  var host = document.getElementById('alerts-overdue');
+  if (!host) return;
+  var items = window._gcOverdue || [];
+  gcUpdateAlertBadge(items.length);
+  var nodes = [];
+  if (items.length) {
+    var progIds = {};
+    items.forEach(function(o) { progIds[o.programId] = 1; });
+    var progCount = Object.keys(progIds).length;
+
+    // Summary notification banner.
+    var banner = el('div', 'display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:8px;margin-bottom:8px;background:#fef2f2;border:1px solid #fecaca;');
+    banner.appendChild(el('div', 'font-size:16px;line-height:1;flex-shrink:0;', '⚠️'));
+    var bt = el('div', 'flex:1;min-width:0;');
+    bt.appendChild(el('div', 'font-size:12px;font-weight:700;color:#991b1b;', 'Overdue program milestones'));
+    bt.appendChild(el('div', 'font-size:11px;color:#b91c1c;line-height:1.4;',
+      'You have ' + items.length + ' overdue ' + (items.length === 1 ? 'milestone' : 'milestones') +
+      ' across ' + progCount + ' ' + (progCount === 1 ? 'program' : 'programs') + '. Review and complete them to stay on track.'));
+    banner.appendChild(bt);
+    nodes.push(banner);
+
+    // One card per overdue milestone.
+    items.forEach(function(o) {
+      var card = el('div', 'padding:8px;border-radius:8px;margin-bottom:6px;background:#fff;border:1px solid #fecaca;border-left:3px solid #dc2626;cursor:pointer;');
+      card.onclick = function() { openOverdueMilestone(o.programId, o.taskId); };
+      var top = el('div', 'display:flex;align-items:center;gap:8px;margin-bottom:4px;');
+      top.appendChild(el('div', 'width:28px;height:28px;border-radius:6px;background:' + o.meta.color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;', o.meta.glyph));
+      var ti = el('div', 'flex:1;min-width:0;');
+      ti.appendChild(el('div', 'font-size:12px;font-weight:600;color:#111827;line-height:1.3;', o.taskName));
+      ti.appendChild(el('div', 'font-size:11px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', o.programName));
+      top.appendChild(ti);
+      card.appendChild(top);
+      card.appendChild(el('div', 'font-size:11px;color:#dc2626;font-weight:600;', 'Past due ' + gcFmtDate(o.dueDate)));
+      nodes.push(card);
+    });
+
+    nodes.push(el('div', 'font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;', 'Other notifications'));
+  }
+  host.replaceChildren.apply(host, nodes);
+}
+
+// Small red count badge on the Alerts tab so overdue items are noticed even when
+// the panel defaults to the programs view.
+function gcUpdateAlertBadge(count) {
+  var tab = document.getElementById('tab-alerts');
+  if (!tab) return;
+  var badge = document.getElementById('tab-alerts-badge');
+  if (!count) { if (badge) badge.remove(); return; }
+  if (tab.style.position !== 'relative') tab.style.position = 'relative';
+  if (!badge) {
+    badge = el('span', 'position:absolute;top:0;right:0;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#dc2626;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box;');
+    badge.id = 'tab-alerts-badge';
+    tab.appendChild(badge);
+  }
+  badge.textContent = String(count);
+}
+
+// Open the EJ Enablement Programs panel focused on a specific overdue milestone.
+function openOverdueMilestone(programId, taskId) {
+  switchDashPanel('guidance');
+  openProgramDetail(programId, taskId);
 }
 
 // Render the Guidance Center list from the cached program/measure arrays. A
@@ -2086,18 +2192,23 @@ async function bridgeLog(taskId, bridge, btn, msgEl) {
   }
 }
 
-async function openProgramDetail(id) {
+async function openProgramDetail(id, focusTaskId) {
   var panel = document.getElementById('gc-detail');
   var body = document.getElementById('gc-detail-body');
   var titleEl = document.getElementById('gc-detail-title');
   if (!panel || !body) return;
+  window._gcFocusTask = focusTaskId || null;
   var p = window._gcPrograms[id] || {};
   titleEl.textContent = p.Name || 'Program';
   panel.style.display = 'flex';
-  body.replaceChildren(el('div', 'padding:16px;color:#6b7280;font-size:12px;', 'Loading program…'));
 
-  var data = null;
-  try { data = await fetch('/api/programs/' + encodeURIComponent(id)).then(function(r){ return r.json(); }); } catch (e) {}
+  // Prefer a detail we already fetched (e.g. by the overdue-milestone scan) so
+  // opening from an alert is instant; otherwise fetch it now.
+  var data = (window._gcDetailCache && window._gcDetailCache[id]) || null;
+  if (!data) {
+    body.replaceChildren(el('div', 'padding:16px;color:#6b7280;font-size:12px;', 'Loading program…'));
+    try { data = await fetch('/api/programs/' + encodeURIComponent(id)).then(function(r){ return r.json(); }); } catch (e) {}
+  }
   if (!data || data.error) {
     window._gcDetail = null;
     body.replaceChildren(el('div', 'padding:16px;color:#dc2626;font-size:12px;', 'Could not load program: ' + ((data && data.error) || 'error')));
@@ -2106,6 +2217,21 @@ async function openProgramDetail(id) {
   // Cache the loaded detail so it can be re-rendered live after a local completion.
   window._gcDetail = { id: id, data: data };
   renderProgramDetail();
+  // If opened targeting a specific milestone (e.g. from an overdue alert),
+  // scroll it into view and briefly highlight it.
+  if (window._gcFocusTask) gcFocusTaskInView(window._gcFocusTask);
+}
+
+// Scroll a specific exercise/milestone into view within the program detail and
+// flash a highlight so it's easy to spot when arriving from an alert.
+function gcFocusTaskInView(taskId) {
+  var node = document.getElementById('gctask-' + taskId);
+  window._gcFocusTask = null;
+  if (!node) return;
+  node.scrollIntoView({ block: 'center' });
+  node.style.transition = 'background-color 0.5s ease';
+  node.style.background = '#fef3c7';
+  setTimeout(function() { node.style.background = ''; }, 1800);
 }
 
 // Render the currently-open program detail from window._gcDetail. Completion is
@@ -2209,6 +2335,7 @@ function renderProgramDetail() {
       var done = gcTaskDone(t);
       var localDone = !(tp.isCompleted) && gcIsLocalDone(t.Id);
       var ex = el('div', 'display:flex;gap:14px;align-items:flex-start;padding:14px 0;');
+      ex.id = 'gctask-' + t.Id;
 
       // Icon tile (category color + glyph) with a green corner check badge when
       // the exercise is complete — matching the Salesforce Guidance Center.
