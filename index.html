@@ -1880,6 +1880,14 @@ async function loadOverdueMilestones() {
     if (!data || data.error || !Array.isArray(data.sections)) continue;
     // Cache so opening the program from an alert is instant.
     window._gcDetailCache[p.Id] = data;
+    // Compute the effective progress up front and record it as the list-card
+    // override, so the programs-list percent matches the detail view without
+    // the user having to open each program first.
+    var eff = gcEffectiveProgress(data, p);
+    if (eff) {
+      window._gcPctOverride = window._gcPctOverride || {};
+      window._gcPctOverride[p.Id] = { percent: eff.pct, allDone: eff.allDone, status: eff.status };
+    }
     var pName = (data.program && data.program.Name) || p.Name || 'Program';
     data.sections.forEach(function(s) {
       (s.tasks || []).forEach(function(t) {
@@ -1897,6 +1905,9 @@ async function loadOverdueMilestones() {
   overdue.sort(function(a, b) { return new Date(a.dueDate) - new Date(b.dueDate); });
   window._gcOverdue = overdue;
   renderOverdueAlerts();
+  // Re-render the programs list so its cards reflect the effective progress
+  // just computed (matching what the detail view shows).
+  renderGCList();
 }
 
 // Build the overdue notification banner + one card per overdue milestone into
@@ -1998,13 +2009,15 @@ function renderGCList() {
       card.appendChild(el('div', 'font-size:11px;color:#374151;line-height:1.4;margin-bottom:6px;', desc));
     }
 
-    // Real learner progress from Salesforce (LearningItemProgress), bumped by any
-    // local (panel) completions recorded for this program in this session.
+    // Effective learner progress. Once the program's detail has been loaded, the
+    // override carries the SAME effective percent/status the detail view shows
+    // (gcEffectiveProgress), so the card and the drill-down always match. Before
+    // that, fall back to Salesforce's reported program percent/status.
     var ov = override[p.Id];
-    var statusStr = (ov && ov.allDone) ? 'Completed' : (p.MyProgressStatus || p.MyEnrollmentStatus);
+    var statusStr = ov ? (ov.status || (ov.allDone ? 'Completed' : null)) : (p.MyProgressStatus || p.MyEnrollmentStatus);
     var sm = gcStatusMeta(statusStr);
     var basePct = (p.MyProgressPercent != null) ? Math.round(p.MyProgressPercent) : (sm.label === 'Completed' ? 100 : 0);
-    var pct = ov ? Math.max(basePct, ov.percent) : basePct;
+    var pct = (ov && ov.percent != null) ? ov.percent : basePct;
     var metaRow = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;');
     metaRow.appendChild(el('span', 'font-size:11px;color:#6b7280;', (p.TotalDays ? p.TotalDays + '-day program' : (p.Type || 'Enablement program')) + ' · ' + pct + '%'));
     metaRow.appendChild(el('span', 'font-size:11px;font-weight:600;color:' + sm.color + ';', sm.label));
@@ -2127,6 +2140,33 @@ function gcTaskFrac(t) {
     return Math.max(0, Math.min(1, Number(b.liveValue) / Number(b.target)));
   }
   return 0;
+}
+
+// Effective program progress, shared by BOTH the programs-list card and the
+// program detail view so the two always show the same percent and status.
+// Counts every completed exercise (Salesforce, met outcome measure, or in-app)
+// plus fractional measure progress, and never dips below Salesforce's own
+// reported percent. Requires the program's loaded detail (data from
+// /api/programs/:id); returns null when that detail isn't available yet.
+function gcEffectiveProgress(data, p) {
+  if (!data) return null;
+  p = p || {};
+  var sections = data.sections || [];
+  var allTasks = [];
+  sections.forEach(function(s) { (s.tasks || []).forEach(function(t) { allTasks.push(t); }); });
+  var totalTasks = allTasks.length;
+  var doneTasks = allTasks.filter(gcTaskDone).length;
+  var effFrac = allTasks.reduce(function(acc, t) { return acc + gcTaskFrac(t); }, 0);
+  var effPct = totalTasks ? Math.round(effFrac / totalTasks * 100) : 0;
+  var mp = data.myProgress || {};
+  var sfPct = (mp.percent != null) ? Math.round(mp.percent) : 0;
+  var pct = Math.max(sfPct, effPct);
+  var allDone = totalTasks > 0 && doneTasks === totalTasks;
+  var status;
+  if (allDone || pct >= 100) status = 'Completed';
+  else if (doneTasks > 0 || pct > 0) status = 'In Progress';
+  else status = mp.status || p.MyProgressStatus || p.MyEnrollmentStatus;
+  return { pct: pct, allDone: allDone, status: status, doneTasks: doneTasks, totalTasks: totalTasks };
 }
 
 // Lazy-load the YouTube IFrame API once, so we can detect when a video ends and
@@ -2252,32 +2292,19 @@ function renderProgramDetail() {
   nodes.push(el('h3', 'font-size:16px;font-weight:700;color:#111827;margin:0 0 8px;line-height:1.3;', prog.Name || ''));
   if (prog.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;', prog.Description));
 
-  // Effective learner progress: count every exercise the learner has completed
-  // (Salesforce or in-panel) across the whole program.
-  var allTasks = [];
-  sections.forEach(function(s) { (s.tasks || []).forEach(function(t) { allTasks.push(t); }); });
-  var totalTasks = allTasks.length;
-  var doneTasks = allTasks.filter(gcTaskDone).length;
-  // Fractional progress: a met/completed milestone counts as 1, and a milestone
-  // partway to its measure target counts proportionally (e.g. 3 of 20 → 0.15).
-  var effFrac = allTasks.reduce(function(acc, t) { return acc + gcTaskFrac(t); }, 0);
-  var effPct = totalTasks ? Math.round(effFrac / totalTasks * 100) : 0;
-
+  // Effective learner progress — the SAME computation the programs-list card
+  // uses (gcEffectiveProgress), so the two indicators always agree.
   var mp = data.myProgress || {};
-  var sfPct = (mp.percent != null) ? Math.round(mp.percent) : 0;
-  var pct = Math.max(sfPct, effPct);
-  var allProgramDone = totalTasks > 0 && doneTasks === totalTasks;
-  // Status reflects effective progress: any completed milestone or measure
-  // movement means "In Progress", even if Salesforce hasn't recomputed yet.
-  var effStatus;
-  if (allProgramDone || pct >= 100) effStatus = 'Completed';
-  else if (doneTasks > 0 || pct > 0) effStatus = 'In Progress';
-  else effStatus = mp.status || p.MyProgressStatus || p.MyEnrollmentStatus;
-  var sm = gcStatusMeta(effStatus);
+  var eff = gcEffectiveProgress(data, p);
+  var totalTasks = eff.totalTasks;
+  var doneTasks = eff.doneTasks;
+  var pct = eff.pct;
+  var allProgramDone = eff.allDone;
+  var sm = gcStatusMeta(eff.status);
 
-  // Record the override so the Guidance Center list card reflects this too.
+  // Record the override so the programs-list card reflects this too.
   window._gcPctOverride = window._gcPctOverride || {};
-  window._gcPctOverride[id] = { percent: pct, allDone: allProgramDone };
+  window._gcPctOverride[id] = { percent: pct, allDone: allProgramDone, status: eff.status };
 
   // Status line (left) + percent (right), matching the SF Guidance Center:
   // "Completed <date>" (green) when done, "Past due <date>" (red) when overdue,
