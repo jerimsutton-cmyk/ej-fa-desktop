@@ -9,14 +9,6 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:auto;background:#ccc;}
 .chrome-window{display:flex;flex-direction:column;height:100vh;}
-.chrome-titlebar{background:#DEE1E6;height:36px;display:flex;align-items:center;padding:0 8px;gap:4px;flex-shrink:0;}
-.chrome-tab{background:white;border-radius:8px 8px 0 0;padding:0 12px;height:28px;display:flex;align-items:center;gap:6px;font-size:12px;color:#333;}
-.chrome-favicon{width:14px;height:14px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;}
-.chrome-favicon span{color:white;font-size:7px;font-weight:bold;}
-.chrome-urlbar{background:white;height:36px;display:flex;align-items:center;padding:0 12px;gap:8px;border-bottom:1px solid #ccc;flex-shrink:0;}
-.nav-btn{background:none;border:none;cursor:pointer;color:#666;font-size:14px;padding:4px;border-radius:50%;}
-.nav-btn:hover{background:#eee;}
-.address-bar{flex:1;background:#F1F3F4;border-radius:20px;padding:4px 12px;font-size:13px;color:#444;display:flex;align-items:center;gap:6px;}
 .app-body{display:flex;flex:1;overflow:hidden;}
 .sidebar{width:60px;background:var(--navy);display:flex;flex-direction:column;align-items:center;padding:8px 0;flex-shrink:0;}
 .sidebar-logo{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
@@ -258,25 +250,6 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 </head>
 <body>
 <div class="chrome-window">
-<!-- Chrome -->
-<div class="chrome-titlebar">
-<div class="chrome-tab">
-<div class="chrome-favicon"><span>EJ</span></div>
-<span>Advisor Home</span>
-<span style="margin-left:4px;color:#666;font-size:10px;cursor:pointer">✕</span>
-</div>
-<button style="background:none;border:none;font-size:16px;color:#666;cursor:pointer;padding:0 8px">+</button>
-</div>
-<div class="chrome-urlbar">
-<button class="nav-btn">←</button>
-<button class="nav-btn">→</button>
-<button class="nav-btn">↺</button>
-<div class="address-bar">
-<span style="font-size:11px;color:#666">🔒</span>
-<span>https://fa.edwardjones.com</span>
-</div>
-<span style="color:#666;font-size:16px;cursor:pointer">☆</span>
-</div>
 <!-- App -->
 <div class="app-body">
 <!-- Sidebar -->
