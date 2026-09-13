@@ -2287,7 +2287,11 @@ function renderProgramDetail() {
   var p = window._gcPrograms[id] || {};
   var prog = data.program || p;
   var sections = data.sections || [];
+  var instanceUrl = data.instanceUrl || null;
   var nodes = [];
+  // Description elements whose "Show More" toggle is revealed only if the text
+  // actually overflows its 2-line clamp (measured after the cards are attached).
+  var clampChecks = [];
 
   nodes.push(el('h3', 'font-size:16px;font-weight:700;color:#111827;margin:0 0 8px;line-height:1.3;', prog.Name || ''));
   if (prog.Description) nodes.push(el('p', 'font-size:12px;color:#374151;line-height:1.5;margin:0 0 12px;', prog.Description));
@@ -2385,22 +2389,25 @@ function renderProgramDetail() {
       info.appendChild(nameEl);
 
       // Description with a "Show More"/"Show Less" toggle (2-line clamp), as in SF.
+      // The toggle is revealed only when the text is genuinely clamped (measured
+      // after attach), so no card is ever cut off without a way to expand it.
       if (t.Description) {
         var clampStyle = 'font-size:13px;color:#3e3e3c;line-height:1.45;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;';
         var fullStyle = 'font-size:13px;color:#3e3e3c;line-height:1.45;margin-top:3px;';
         var dtext = el('div', clampStyle, t.Description);
         info.appendChild(dtext);
-        if ((t.Description || '').length > 85) {
-          var toggle = el('span', 'display:inline-block;color:#0176D3;font-size:13px;font-weight:600;cursor:pointer;margin-top:1px;', 'Show More');
+        var toggle = el('span', 'display:none;color:#0176D3;font-size:13px;font-weight:600;cursor:pointer;margin-top:1px;', 'Show More');
+        (function(dt, tg, cs, fs) {
           var expanded = false;
-          toggle.onclick = function(e) {
+          tg.onclick = function(e) {
             e.stopPropagation();
             expanded = !expanded;
-            dtext.setAttribute('style', expanded ? fullStyle : clampStyle);
-            toggle.textContent = expanded ? 'Show Less' : 'Show More';
+            dt.setAttribute('style', expanded ? fs : cs);
+            tg.textContent = expanded ? 'Show Less' : 'Show More';
           };
-          info.appendChild(toggle);
-        }
+        })(dtext, toggle, clampStyle, fullStyle);
+        info.appendChild(toggle);
+        clampChecks.push({ dt: dtext, tg: toggle });
       }
 
       // Completion / due-date line (SF shows "Completed 5/14/2026" or "Past due …").
@@ -2480,6 +2487,20 @@ function renderProgramDetail() {
         (function(taskId) { mark.onclick = function(e) { e.stopPropagation(); markTaskComplete(taskId); }; })(t.Id);
         actions.appendChild(mark);
       }
+      // If the milestone has related content in Salesforce (a lesson, document,
+      // video, or link exercise, or an authored description), offer a link out to
+      // its Salesforce record — so content we can't render in-app is still viewable.
+      var sub = (t.TaskSubCategory || '');
+      var hasSFContent = !!t.Description || !!t.video || /Video|Document|TextLesson|Link|OtherExercise/i.test(sub);
+      if (instanceUrl && hasSFContent) {
+        var sfLink = el('a', 'display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#0176D3;font-weight:600;text-decoration:none;cursor:pointer;', 'View in Salesforce ↗');
+        sfLink.href = instanceUrl.replace(/\/+$/, '') + '/' + t.Id;
+        sfLink.target = '_blank';
+        sfLink.rel = 'noopener';
+        sfLink.title = 'Open this milestone’s record in Salesforce';
+        sfLink.onclick = function(e) { e.stopPropagation(); };
+        actions.appendChild(sfLink);
+      }
       // Footer: app actions on the left, SF-style completion/due date on the right.
       if (actions.childNodes.length || statusLine) {
         var footer = el('div', 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px;');
@@ -2497,6 +2518,14 @@ function renderProgramDetail() {
   });
 
   body.replaceChildren.apply(body, nodes);
+
+  // Now that the cards are in the DOM (and laid out at the current panel width),
+  // reveal a "Show More" toggle only for descriptions that actually overflow the
+  // 2-line clamp — so any card whose content is cut off can be expanded, and
+  // cards that fit stay clean.
+  clampChecks.forEach(function(c) {
+    if (c.dt.scrollHeight > c.dt.clientHeight + 1) c.tg.style.display = 'inline-block';
+  });
 }
 
 // ── Guidance Center drill-down: measure detail ───────────────────────────────
