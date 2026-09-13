@@ -2287,7 +2287,6 @@ function renderProgramDetail() {
   var p = window._gcPrograms[id] || {};
   var prog = data.program || p;
   var sections = data.sections || [];
-  var instanceUrl = data.instanceUrl || null;
   var nodes = [];
   // Description elements whose "Show More" toggle is revealed only if the text
   // actually overflows its 2-line clamp (measured after the cards are attached).
@@ -2486,20 +2485,6 @@ function renderProgramDetail() {
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
         (function(taskId) { mark.onclick = function(e) { e.stopPropagation(); markTaskComplete(taskId); }; })(t.Id);
         actions.appendChild(mark);
-      }
-      // If the milestone has related content in Salesforce (a lesson, document,
-      // video, or link exercise, or an authored description), offer a link out to
-      // its Salesforce record — so content we can't render in-app is still viewable.
-      var sub = (t.TaskSubCategory || '');
-      var hasSFContent = !!t.Description || !!t.video || /Video|Document|TextLesson|Link|OtherExercise/i.test(sub);
-      if (instanceUrl && hasSFContent) {
-        var sfLink = el('a', 'display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#0176D3;font-weight:600;text-decoration:none;cursor:pointer;', 'View in Salesforce ↗');
-        sfLink.href = instanceUrl.replace(/\/+$/, '') + '/' + t.Id;
-        sfLink.target = '_blank';
-        sfLink.rel = 'noopener';
-        sfLink.title = 'Open this milestone’s record in Salesforce';
-        sfLink.onclick = function(e) { e.stopPropagation(); };
-        actions.appendChild(sfLink);
       }
       // Footer: app actions on the left, SF-style completion/due date on the right.
       if (actions.childNodes.length || statusLine) {
