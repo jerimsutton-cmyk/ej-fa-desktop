@@ -89,6 +89,36 @@ publishing also drives enrollment/versioning, so it must be done in the builder:
 After publishing, every content exercise completes with one click in the web app — no learner
 ever enters Salesforce.
 
+---
+
+## 4. Can we trigger "Refresh Progress" (on-demand recompute) from the web app?
+
+**No — not with the org as currently configured, and it isn't needed.**
+
+- The customer-facing trigger is the Connect REST resource
+  `POST /connect/enablement/programs/{enablementProgramId}/on-demand-computation`
+  (plural `programs` since API v244; recomputes for the *calling* user, which here is also the
+  learner — ideal). Confirmed as the intended path by the feature team.
+- In this org that path returns `NOT_FOUND`. So do the other registered subresources
+  (`programs/status`, `programs/{id}`) — while only the base `POST .../programs` (create-program)
+  collection resolves. In the Connect framework a `NOT_FOUND` on a correct path means the
+  **resource bean isn't registered** — i.e. the **Guided Content** feature perm that registers the
+  program-management subresource family isn't enabled here. Enabling it is a Salesforce-side
+  config change, not something reachable from the web app or the integration user's API session.
+- The internal recompute batch jobs (`MeasureComputationBlackTabAction`,
+  `ProgramProgressStatusUpdateBlackTabAction`) are explicitly documented as **not API-accessible**
+  (black-tab only), so they are not a fallback.
+
+**Why it doesn't matter for the learner:** the web app already shows the *true* measure value the
+instant a milestone is completed — `measureLiveValue` (marker-filtered, owner-scoped count) and
+`fetchMeasureResults` (`EnblPgmTaskMeasureProgress.MeasureComputationResult`) are read on the next
+load. "Refresh Progress" would only advance Salesforce's *own* internal `LearningItemProgress`
+rollup, which runs on its ~twice-daily schedule and which the learner never sees.
+
+**If back-end lockstep is ever required:** turn on the Guided Content feature/perm in Setup, then
+wire a server-side `POST .../programs/{id}/on-demand-computation` call right after the bridge write
+in `/api/exercises/:taskId/log`. Nothing else in the app needs to change.
+
 ### Day-45 caveat (unchanged)
 `Complete 10 Next-Gen Introductory Calls` still counts the Data Cloud object `ssot__Prospect__dlm`
 (`createable=false`), so it can't be bridged. To make it one-click, re-point its measure

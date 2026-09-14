@@ -2058,7 +2058,9 @@ function gcStatusMeta(status) {
 // completed exercise Ids in localStorage (so checkmarks/progress survive a
 // reload) and offer an "Open in Salesforce" link-out for real, engine-recorded
 // completion in the learner's own session.
-var GC_DONE_KEY = 'gc_local_done';
+// Versioned key: bumping the suffix discards all prior in-app completion flags,
+// resetting the panel to Salesforce's actual activity completion.
+var GC_DONE_KEY = 'gc_local_done_v2';
 // Stored as { taskId: completedISO }. Tolerates the older array-of-ids format.
 function gcLocalDoneMap() {
   try {
