@@ -1835,6 +1835,8 @@ async function loadOverdueMilestones() {
     var data = null;
     try { data = await fetch('/api/programs/' + encodeURIComponent(p.Id)).then(function(r){ return r.json(); }); } catch (e) {}
     if (!data || data.error || !Array.isArray(data.sections)) continue;
+    // Drop stale in-app completion flags from a prior enrollment of this program.
+    gcReconcileLocalDone(data);
     // Cache so opening the program from an alert is instant.
     window._gcDetailCache[p.Id] = data;
     // Compute the effective progress up front and record it as the list-card
@@ -2072,6 +2074,27 @@ function gcSetLocalDone(taskId) {
   if (!(taskId in m)) m[taskId] = new Date().toISOString();
   try { localStorage.setItem(GC_DONE_KEY, JSON.stringify(m)); } catch (e) {}
 }
+// Reconcile local (in-app) completion flags against Salesforce enrollment. When a
+// learner is unassigned and re-assigned the same program, its task IDs are reused,
+// so old in-app "done" flags would otherwise make a freshly-assigned (Not Started)
+// program look in-progress. Any local completion recorded before the current
+// assignment's StartDate is stale — drop it so the panel matches Salesforce.
+function gcReconcileLocalDone(data) {
+  if (!data || !data.myProgress || !data.myProgress.startDate) return;
+  var start = new Date(data.myProgress.startDate).getTime();
+  if (isNaN(start)) return;
+  var m = gcLocalDoneMap();
+  var changed = false;
+  (data.sections || []).forEach(function(s) {
+    (s.tasks || []).forEach(function(t) {
+      if (Object.prototype.hasOwnProperty.call(m, t.Id)) {
+        var ts = m[t.Id] ? new Date(m[t.Id]).getTime() : 0;
+        if (!(ts >= start)) { delete m[t.Id]; changed = true; }
+      }
+    });
+  });
+  if (changed) { try { localStorage.setItem(GC_DONE_KEY, JSON.stringify(m)); } catch (e) {} }
+}
 // Format a Salesforce date/datetime like the SF Guidance Center: "5/14/2026".
 function gcFmtDate(d) {
   if (!d) return '';
@@ -2079,21 +2102,27 @@ function gcFmtDate(d) {
   if (isNaN(dt.getTime())) return '';
   return dt.toLocaleDateString('en-US');
 }
-// Effective completion = Salesforce reports it complete, OR the milestone's
-// outcome measure has met its target, OR the user completed it here in the panel.
+// Effective completion. Salesforce's own per-task progress is authoritative. We
+// also credit a content-marker bridge (a milestone the web app can complete by
+// writing its marker record) and any in-app completion the user made here.
+// We do NOT infer completion from a generic outcome measure's live value: that
+// value is an owner-scoped count without the measure's real filter, so ambient
+// CRM records (any Task/Event/Opportunity) would falsely trip the milestone —
+// completion for those is decided by Salesforce and arrives via t.progress.
 function gcTaskDone(t) {
   return !!(t && (
     (t.progress && t.progress.isCompleted) ||
-    (t.bridge && t.bridge.met === true) ||
+    (t.bridge && t.bridge.content === true && t.bridge.met === true) ||
     gcIsLocalDone(t.Id)
   ));
 }
 // Fractional progress toward a milestone's target (0..1), for the section rings
-// and program bar — so partial measure progress shows even before the target is met.
+// and program bar. Only content-marker bridges contribute a fraction; generic
+// outcome measures don't (their live value is unfiltered — see gcTaskDone).
 function gcTaskFrac(t) {
   if (gcTaskDone(t)) return 1;
   var b = t && t.bridge;
-  if (b && b.liveValue != null && b.target != null && b.target > 0) {
+  if (b && b.content === true && b.liveValue != null && b.target != null && b.target > 0) {
     return Math.max(0, Math.min(1, Number(b.liveValue) / Number(b.target)));
   }
   return 0;
@@ -2244,6 +2273,8 @@ function renderProgramDetail() {
   var p = window._gcPrograms[id] || {};
   var prog = data.program || p;
   var sections = data.sections || [];
+  // Drop stale in-app completion flags from a prior enrollment of this program.
+  gcReconcileLocalDone(data);
   var nodes = [];
   // Description elements whose "Show More" toggle is revealed only if the text
   // actually overflows its 2-line clamp (measured after the cards are attached).
@@ -2422,21 +2453,21 @@ function renderProgramDetail() {
         actions.appendChild(vwrap);
       } else if (t.bridge) {
         // Measure-based milestone: shown for context only. Completion is driven by
-        // the underlying Enablement Measure — no manual Salesforce action here.
+        // the underlying Enablement Measure and reported by Salesforce (t.progress).
         var b = t.bridge;
-        // Show progress toward the milestone's target: "now 3 of 20" (or "✓ target met").
+        // Only a content-marker bridge has a reliable live value (it counts the
+        // marker record the web app writes). A generic outcome measure's live value
+        // is an unfiltered owner-scoped count, so we don't show it as progress —
+        // that would misrepresent ambient CRM records as milestone progress.
         var prog = '';
-        if (b.liveValue != null && b.target != null && b.target > 0) {
-          prog = b.met ? '  ·  ✓ target met (' + b.liveValue + ' of ' + b.target + ')'
-                       : '  ·  now ' + b.liveValue + ' of ' + b.target;
-        } else if (b.liveValue != null) {
-          prog = '  ·  now ' + b.liveValue;
+        if (b.content === true && b.liveValue != null && b.target != null && b.target > 0) {
+          prog = done ? '  ·  ✓ target met (' + b.liveValue + ' of ' + b.target + ')'
+                      : '  ·  now ' + b.liveValue + ' of ' + b.target;
         }
-        var noteText = b.writable
+        var noteText = (b.content === true && b.writable)
           ? 'Counts toward "' + b.measure + '" · ' + (b.fn || '') + ' of ' + b.object + prog
-          : 'Completed in Salesforce when "' + b.measure + '" (' + (b.fn || '') + ' of ' + b.object + ') is met.' +
-            (prog ? ' ·' + prog.replace(/^\s*·/, '') : '');
-        actions.appendChild(el('div', 'font-size:11px;color:' + (b.met ? '#047857' : '#5c5c5c') + ';', noteText));
+          : 'Completed in Salesforce when "' + b.measure + '" (' + (b.fn || '') + ' of ' + b.object + ') is met.';
+        actions.appendChild(el('div', 'font-size:11px;color:' + (done ? '#047857' : '#5c5c5c') + ';', noteText));
       } else if (!done) {
         // Content exercise with no measure bridge: an in-app completion action.
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
