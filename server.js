@@ -142,7 +142,7 @@ function markerTask(me, marker) {
 async function fetchExerciseMeasures(conn, programId) {
   const byTask = {};
   const rows = await conn.query(
-    `SELECT EnblProgramTaskDefinitionId, EnablementMeasureDefinitionId,
+    `SELECT Id, EnblProgramTaskDefinitionId, EnablementMeasureDefinitionId,
             EnablementMeasureDefinition.MasterLabel, EnablementMeasureDefinition.DeveloperName,
             EnablementMeasureDefinition.SourceObjectApiName,
             EnablementMeasureDefinition.AggregateFunction, EnablementMeasureDefinition.AggregateFieldApiName
@@ -153,6 +153,7 @@ async function fetchExerciseMeasures(conn, programId) {
   for (const r of rows.records) {
     const md = r.EnablementMeasureDefinition || {};
     (byTask[r.EnblProgramTaskDefinitionId] = byTask[r.EnblProgramTaskDefinitionId] || []).push({
+      taskMeasureId: r.Id,
       defId: r.EnablementMeasureDefinitionId,
       dev: md.DeveloperName,
       label: md.MasterLabel,
@@ -162,6 +163,28 @@ async function fetchExerciseMeasures(conn, programId) {
     });
   }
   return byTask;
+}
+
+// Salesforce's own engine-computed value for each task's outcome measure, scoped
+// to the current learner (EnblPgmTaskMeasureProgress hangs off the learner's
+// EnblProgramTaskProgress). This is the TRUE measure value — the real measure
+// with its filter applied — as opposed to the owner-scoped approximation in
+// measureLiveValue. Returns a map: EnblProgramTaskMeasureId -> { result, count }.
+async function fetchMeasureResults(conn, me, programId) {
+  const byMeasure = {};
+  const rows = await conn.query(
+    `SELECT MeasureComputationResult, ContributingRecordCount, EnblProgramTaskMeasureId
+     FROM EnblPgmTaskMeasureProgress
+     WHERE EnblProgramTaskProgress.EnblProgramTaskDefinition.EnablementProgramId = '${programId}'
+       AND EnblProgramTaskProgress.LearningItemProgress.OwnerId = '${me}'`
+  );
+  for (const r of rows.records) {
+    byMeasure[r.EnblProgramTaskMeasureId] = {
+      result: r.MeasureComputationResult,
+      count: r.ContributingRecordCount,
+    };
+  }
+  return byMeasure;
 }
 
 // A single measure's live value for the current user (owner-scoped where the
@@ -507,6 +530,10 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
   // outcome milestones can be completed from the web app via the bridge.
   let measuresByTask = {};
   try { measuresByTask = await fetchExerciseMeasures(conn, id); } catch (_) { measuresByTask = {}; }
+  // Salesforce's engine-computed measure value per task-measure for this learner
+  // (the true, filtered value). Preferred over the owner-scoped approximation.
+  let measureResults = {};
+  try { measureResults = await fetchMeasureResults(conn, me, id); } catch (_) { measureResults = {}; }
   const liveCache = {};
   async function bridgeFor(t) {
     const ms = measuresByTask[t.Id];
@@ -515,12 +542,22 @@ app.get('/api/programs/:id', handler(async (conn, req, res) => {
     const content = m.dev ? CONTENT_MARKERS[m.dev] : null;
     const marker = content ? content.marker : null;
     const tmpl = BRIDGE_TEMPLATES[m.object];
+    const computed = measureResults[m.taskMeasureId];
     let liveValue = null;
-    try {
-      const key = m.object + (marker || '');
-      if (!(key in liveCache)) liveCache[key] = await measureLiveValue(conn, me, { ...m, marker });
-      liveValue = liveCache[key];
-    } catch (_) {}
+    if (marker) {
+      // Content-marker bridge: the marker-filtered count is exact and reflects a
+      // web-app completion instantly (the engine-computed value lags a recompute).
+      try {
+        const key = m.object + marker;
+        if (!(key in liveCache)) liveCache[key] = await measureLiveValue(conn, me, { ...m, marker });
+        liveValue = liveCache[key];
+      } catch (_) {}
+      if (liveValue == null && computed && computed.result != null) liveValue = computed.result;
+    } else {
+      // Generic outcome measure: use Salesforce's true engine-computed value, not
+      // an unfiltered owner count (which would miscount ambient CRM records).
+      liveValue = (computed && computed.result != null) ? computed.result : null;
+    }
     const target = (t.MilestoneTarget != null) ? Number(t.MilestoneTarget) : null;
     // A milestone's outcome measure has met its target — the milestone is achieved
     // (Salesforce credits completion on its next measure recompute).

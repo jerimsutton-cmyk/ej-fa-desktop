@@ -2102,27 +2102,25 @@ function gcFmtDate(d) {
   if (isNaN(dt.getTime())) return '';
   return dt.toLocaleDateString('en-US');
 }
-// Effective completion. Salesforce's own per-task progress is authoritative. We
-// also credit a content-marker bridge (a milestone the web app can complete by
-// writing its marker record) and any in-app completion the user made here.
-// We do NOT infer completion from a generic outcome measure's live value: that
-// value is an owner-scoped count without the measure's real filter, so ambient
-// CRM records (any Task/Event/Opportunity) would falsely trip the milestone —
-// completion for those is decided by Salesforce and arrives via t.progress.
+// Effective completion = Salesforce reports the task complete, OR its outcome
+// measure has met its target, OR the user completed it here in the panel. The
+// measure's live value is Salesforce's own engine-computed value for this learner
+// (the real measure with its filter applied — see fetchMeasureResults on the
+// server), so a "met" milestone reflects true progress, not ambient CRM records.
 function gcTaskDone(t) {
   return !!(t && (
     (t.progress && t.progress.isCompleted) ||
-    (t.bridge && t.bridge.content === true && t.bridge.met === true) ||
+    (t.bridge && t.bridge.met === true) ||
     gcIsLocalDone(t.Id)
   ));
 }
 // Fractional progress toward a milestone's target (0..1), for the section rings
-// and program bar. Only content-marker bridges contribute a fraction; generic
-// outcome measures don't (their live value is unfiltered — see gcTaskDone).
+// and program bar — so partial (but real) measure progress shows before the
+// target is met.
 function gcTaskFrac(t) {
   if (gcTaskDone(t)) return 1;
   var b = t && t.bridge;
-  if (b && b.content === true && b.liveValue != null && b.target != null && b.target > 0) {
+  if (b && b.liveValue != null && b.target != null && b.target > 0) {
     return Math.max(0, Math.min(1, Number(b.liveValue) / Number(b.target)));
   }
   return 0;
@@ -2452,22 +2450,22 @@ function renderProgramDetail() {
         }
         actions.appendChild(vwrap);
       } else if (t.bridge) {
-        // Measure-based milestone: shown for context only. Completion is driven by
-        // the underlying Enablement Measure and reported by Salesforce (t.progress).
+        // Measure-based milestone. The live value is Salesforce's own engine-
+        // computed value for this learner (the real measure with its filter), so
+        // "now X of Y" / "✓ target met" reflect true progress.
         var b = t.bridge;
-        // Only a content-marker bridge has a reliable live value (it counts the
-        // marker record the web app writes). A generic outcome measure's live value
-        // is an unfiltered owner-scoped count, so we don't show it as progress —
-        // that would misrepresent ambient CRM records as milestone progress.
         var prog = '';
-        if (b.content === true && b.liveValue != null && b.target != null && b.target > 0) {
-          prog = done ? '  ·  ✓ target met (' + b.liveValue + ' of ' + b.target + ')'
-                      : '  ·  now ' + b.liveValue + ' of ' + b.target;
+        if (b.liveValue != null && b.target != null && b.target > 0) {
+          prog = b.met ? '  ·  ✓ target met (' + b.liveValue + ' of ' + b.target + ')'
+                       : '  ·  now ' + b.liveValue + ' of ' + b.target;
+        } else if (b.liveValue != null) {
+          prog = '  ·  now ' + b.liveValue;
         }
-        var noteText = (b.content === true && b.writable)
+        var noteText = b.writable
           ? 'Counts toward "' + b.measure + '" · ' + (b.fn || '') + ' of ' + b.object + prog
-          : 'Completed in Salesforce when "' + b.measure + '" (' + (b.fn || '') + ' of ' + b.object + ') is met.';
-        actions.appendChild(el('div', 'font-size:11px;color:' + (done ? '#047857' : '#5c5c5c') + ';', noteText));
+          : 'Completed in Salesforce when "' + b.measure + '" (' + (b.fn || '') + ' of ' + b.object + ') is met.' +
+            (prog ? ' ·' + prog.replace(/^\s*·/, '') : '');
+        actions.appendChild(el('div', 'font-size:11px;color:' + (b.met ? '#047857' : '#5c5c5c') + ';', noteText));
       } else if (!done) {
         // Content exercise with no measure bridge: an in-app completion action.
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
