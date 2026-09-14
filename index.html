@@ -280,7 +280,7 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
 <svg viewbox="0 0 24 24"><rect height="7" width="7" x="3" y="3"></rect><rect height="7" width="7" x="14" y="3"></rect><rect height="7" width="7" x="14" y="14"></rect><rect height="7" width="7" x="3" y="14"></rect></svg>
 <span>Widgets</span>
 </div>
-<div class="nav-item">
+<div class="nav-item" id="nav-settings" onclick="nav('settings')">
 <svg viewbox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
 <span>Settings</span>
 </div>
@@ -1454,6 +1454,23 @@ body{font-family:system-ui,-apple-system,sans-serif;min-width:1400px;overflow-x:
     </table>
   </div>
 </div>
+<!-- ===== SCREEN: settings ===== -->
+<div class="screen" id="s-settings" style="flex-direction:row;">
+<div class="main-content">
+<div class="page-header" style="background:var(--light-bg);">
+<h1>Settings</h1>
+</div>
+<div style="padding:24px;overflow-y:auto;flex:1;">
+<div class="card" style="max-width:660px;">
+<div class="card-header">Enablement Milestones</div>
+<p style="font-size:12px;color:var(--text-mid);line-height:1.6;margin:8px 0 4px;">Reset and re-sync your program milestones with Salesforce. This removes the demo activity records this app created on your behalf — logged calls and meetings, plus completion markers — so every milestone returns to its true Salesforce status, and clears the app's local completion cache on this device.</p>
+<p style="font-size:11px;color:var(--text-light);line-height:1.5;margin:0 0 14px;">For demo use. Milestones you completed in the app will show as incomplete again until you redo them.</p>
+<button class="btn btn-primary" id="reset-ms-btn" onclick="resetMilestones(this)">Reset &amp; sync milestones</button>
+<div id="reset-ms-msg" style="margin-top:12px;font-size:12px;"></div>
+</div>
+</div>
+</div>
+</div>
 </div><!-- end screens -->
 </div><!-- end app-body -->
 </div><!-- end chrome-window -->
@@ -1462,7 +1479,7 @@ var currentScreen = 'dashboard-default';
 var navMap = {
   'dashboard-default':'nav-home','dashboard-reply-emma':'nav-home','dashboard-sent-emma':'nav-home',
   'dashboard-today-connections':'nav-home','actionable-list':'nav-home','calendar-full':'nav-calendar','client-barbara':'nav-clients',
-  'meeting-prep':'nav-clients','scheduling':'nav-home','scheduling-confirmed':'nav-home'
+  'meeting-prep':'nav-clients','scheduling':'nav-home','scheduling-confirmed':'nav-home','settings':'nav-settings'
 };
 
 function nav(screen) {
@@ -1793,6 +1810,49 @@ async function saveLogCall() {
     if (msg) { msg.style.color = '#c23934'; msg.textContent = 'Network error — call not logged'; }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+}
+
+// Settings → reset/sync milestones with Salesforce. Deletes the demo activity
+// records this app created (server-side), clears the local completion cache and
+// in-memory Guidance Center caches, then reloads so the panel reflects the true
+// Salesforce state.
+async function resetMilestones(btn) {
+  var msg = document.getElementById('reset-ms-msg');
+  function setMsg(color, text) {
+    if (msg) { msg.setAttribute('style', 'margin-top:12px;font-size:12px;font-weight:600;color:' + color + ';'); msg.textContent = text; }
+  }
+  var orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = 'Resetting…'; }
+  setMsg('#6b7280', 'Syncing with Salesforce…');
+
+  var serverOk = true, deleted = null;
+  try {
+    var r = await fetch('/api/reset-milestones', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    }).then(function(x) { return x.json(); });
+    serverOk = !!(r && r.success);
+    deleted = r && r.deleted;
+  } catch (e) { serverOk = false; }
+
+  // Clear local app cache (all gc_* keys) and in-memory Guidance Center caches.
+  try {
+    Object.keys(localStorage).forEach(function(k) { if (k.indexOf('gc_') === 0) localStorage.removeItem(k); });
+  } catch (e) {}
+  window._gcDetailCache = {};
+  window._gcPctOverride = {};
+  window._gcDetail = null;
+  try { closeGCDetail(); } catch (e) {}
+
+  // Reload the Guidance Center so cards/milestones reflect the reset.
+  try { if (typeof loadGuidanceCenter === 'function') await loadGuidanceCenter(); } catch (e) {}
+
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = orig; }
+  if (serverOk) {
+    var n = deleted ? Object.keys(deleted).reduce(function(a, k) { return a + (deleted[k] || 0); }, 0) : 0;
+    setMsg('#047857', '✓ Milestones synced with Salesforce and local cache cleared' + (n ? ' (' + n + ' demo record' + (n === 1 ? '' : 's') + ' removed).' : '.'));
+  } else {
+    setMsg('#c23934', 'Local cache was cleared, but syncing with Salesforce failed — please try again.');
   }
 }
 

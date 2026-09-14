@@ -904,6 +904,44 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
   });
 }));
 
+// ── RESET: remove the demo bridge records this app created ───────────────────
+// Deletes the learner-owned CRM records the web app writes to advance Enablement
+// milestones — marker Tasks (content exercises), the CRM-record bridges (logged
+// calls, meetings, prospects, won deals), and live-logged calls. With them gone,
+// every measure recomputes to 0 so milestones return to their true Salesforce
+// state. Signatures are derived from CONTENT_MARKERS / BRIDGE_TEMPLATES so this
+// stays in sync with what the app creates. For demo reset use.
+app.post('/api/reset-milestones', handler(async (conn, req, res) => {
+  const me = await getMyUserId(conn);
+  const esc = (s) => String(s).replace(/'/g, "\\'");
+  const deleted = {};
+
+  async function purge(object, where) {
+    deleted[object] = deleted[object] || 0;
+    const q = await conn.query(`SELECT Id FROM ${object} WHERE OwnerId = '${me}' AND (${where})`);
+    const ids = q.records.map((r) => r.Id);
+    if (!ids.length) return;
+    const out = await conn.sobject(object).destroy(ids);
+    const arr = Array.isArray(out) ? out : [out];
+    deleted[object] += arr.filter((x) => x && x.success).length;
+  }
+
+  // Content-milestone marker Tasks (unique Subject markers).
+  const markers = [...new Set(Object.values(CONTENT_MARKERS).map((c) => c.marker))];
+  const markerClause = markers.map((m) => `Subject = '${esc(m)}'`).join(' OR ');
+  // Bridge-template Task (logged call) + any live-logged completed calls.
+  const taskTmplSubject = BRIDGE_TEMPLATES.Task.build(me).Subject;
+  await purge(
+    'Task',
+    `${markerClause} OR Subject = '${esc(taskTmplSubject)}' OR (Type = 'Call' AND Status = 'Completed')`
+  );
+  await purge('Event', `Subject = '${esc(BRIDGE_TEMPLATES.Event.build(me).Subject)}'`);
+  await purge('Lead', `LastName = '${esc(BRIDGE_TEMPLATES.Lead.build(me).LastName)}'`);
+  await purge('Opportunity', `Name = '${esc(BRIDGE_TEMPLATES.Opportunity.build(me).Name)}'`);
+
+  res.json({ success: true, deleted });
+}));
+
 // ── Serve the front end for all other routes ─────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
