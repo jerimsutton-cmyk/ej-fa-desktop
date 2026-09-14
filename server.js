@@ -862,7 +862,7 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
      ORDER BY SequenceNumber LIMIT 1`
   );
   if (!rows.records.length) {
-    return res.status(400).json({ error: 'This exercise is not measure-based, so it cannot be completed from here. It must be done in Salesforce.' });
+    return res.status(400).json({ error: 'This item can’t be completed from here.' });
   }
   const md = rows.records[0].EnablementMeasureDefinition || {};
   const content = md.DeveloperName ? CONTENT_MARKERS[md.DeveloperName] : null;
@@ -878,14 +878,14 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
     object = md.SourceObjectApiName;
     const tmpl = BRIDGE_TEMPLATES[object];
     if (!tmpl) {
-      return res.status(422).json({ error: `The measure behind this exercise counts ${object || 'an object'}, which the web app can't create. Complete it in Salesforce.`, object });
+      return res.status(422).json({ error: 'This item can’t be completed from here yet.', object });
     }
     record = tmpl.build(me);
   }
 
   const result = await conn.sobject(object).create(record);
   if (!result.success) {
-    return res.status(400).json({ error: 'Could not create the Salesforce record.', details: result.errors });
+    return res.status(400).json({ error: 'Could not save your progress. Please try again.', details: result.errors });
   }
 
   // Report the new live measure value so the UI can reflect the movement.
@@ -900,7 +900,7 @@ app.post('/api/exercises/:taskId/log', handler(async (conn, req, res) => {
     object,
     measure: md.MasterLabel,
     liveValue,
-    note: 'Salesforce Enablement credits the milestone on its next measure recompute.',
+    note: 'Progress recorded. The milestone updates shortly.',
   });
 }));
 

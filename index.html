@@ -1784,7 +1784,7 @@ async function saveLogCall() {
     var r = await fetch('/api/log-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     var d = await r.json();
     if (r.ok && d.success) {
-      if (msg) { msg.style.color = '#047857'; msg.textContent = '✓ Call logged in Salesforce'; }
+      if (msg) { msg.style.color = '#047857'; msg.textContent = '✓ Call logged'; }
       setTimeout(closeLogCall, 900);
     } else if (msg) {
       msg.style.color = '#c23934'; msg.textContent = (d && d.error) || 'Could not log the call';
@@ -2198,20 +2198,15 @@ async function bridgeLog(taskId, bridge, btn, msgEl) {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     if (labelSpan) labelSpan.textContent = orig;
     if (r && r.success) {
-      window._gcBridgeCount = window._gcBridgeCount || {};
-      window._gcBridgeCount[taskId] = (window._gcBridgeCount[taskId] || 0) + 1;
-      setMsg('font-size:11px;color:#047857;font-weight:600;',
-        '✓ Logged in Salesforce' +
-        (r.liveValue != null ? ' · ' + r.measure + ' now ' + r.liveValue : '') +
-        '  ·  ' + window._gcBridgeCount[taskId] + ' from here (credits on recompute)');
+      setMsg('font-size:11px;color:#047857;font-weight:600;', '✓ Completed');
       return true;
     }
-    setMsg('font-size:11px;color:#c23934;', (r && r.error) || 'Could not log to Salesforce.');
+    setMsg('font-size:11px;color:#c23934;', (r && r.error) || 'Could not save your progress.');
     return false;
   } catch (e) {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     if (labelSpan) labelSpan.textContent = orig;
-    setMsg('font-size:11px;color:#c23934;', 'Network error logging to Salesforce.');
+    setMsg('font-size:11px;color:#c23934;', 'Something went wrong — please try again.');
     return false;
   }
 }
@@ -2445,27 +2440,22 @@ function renderProgramDetail() {
         vwrap.appendChild(vrow);
         if (t.bridge && t.bridge.writable && t.bridge.content) {
           vwrap.appendChild(el('div', 'font-size:11px;color:#5c5c5c;',
-            'Marks "' + t.bridge.measure + '" complete in Salesforce when viewed' +
-            (t.bridge.liveValue != null ? '  ·  now ' + t.bridge.liveValue : '')));
+            'Watching marks this milestone complete.'));
         }
         actions.appendChild(vwrap);
       } else if (t.bridge) {
-        // Measure-based milestone. The live value is Salesforce's own engine-
-        // computed value for this learner (the real measure with its filter), so
-        // "now X of Y" / "✓ target met" reflect true progress.
+        // Outcome milestone: show progress toward its target. The live value is
+        // the learner's engine-computed measure value — surfaced as a plain count,
+        // with no reference to the backing system.
         var b = t.bridge;
         var prog = '';
         if (b.liveValue != null && b.target != null && b.target > 0) {
-          prog = b.met ? '  ·  ✓ target met (' + b.liveValue + ' of ' + b.target + ')'
-                       : '  ·  now ' + b.liveValue + ' of ' + b.target;
+          prog = b.met ? '✓ Target met (' + b.liveValue + ' of ' + b.target + ')'
+                       : 'Progress: ' + b.liveValue + ' of ' + b.target;
         } else if (b.liveValue != null) {
-          prog = '  ·  now ' + b.liveValue;
+          prog = 'Progress: ' + b.liveValue;
         }
-        var noteText = b.writable
-          ? 'Counts toward "' + b.measure + '" · ' + (b.fn || '') + ' of ' + b.object + prog
-          : 'Completed in Salesforce when "' + b.measure + '" (' + (b.fn || '') + ' of ' + b.object + ') is met.' +
-            (prog ? ' ·' + prog.replace(/^\s*·/, '') : '');
-        actions.appendChild(el('div', 'font-size:11px;color:' + (b.met ? '#047857' : '#5c5c5c') + ';', noteText));
+        if (prog) actions.appendChild(el('div', 'font-size:11px;color:' + (b.met ? '#047857' : '#5c5c5c') + ';', prog));
       } else if (!done) {
         // Content exercise with no measure bridge: an in-app completion action.
         var mark = el('button', 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #047857;border-radius:6px;background:#fff;color:#047857;font-size:12px;font-weight:600;cursor:pointer;', '✓ Mark complete');
@@ -2703,7 +2693,7 @@ async function saveContactEdit() {
   };
   var msg = document.getElementById('ce-msg');
   var btn = document.getElementById('ce-save');
-  msg.style.color = '#6b7280'; msg.textContent = 'Saving to Salesforce…'; btn.disabled = true;
+  msg.style.color = '#6b7280'; msg.textContent = 'Saving…'; btn.disabled = true;
   try {
     var res = await fetch('/api/records/Contact/' + encodeURIComponent(id), {
       method: 'PATCH',
@@ -2712,7 +2702,7 @@ async function saveContactEdit() {
     });
     var data = await res.json();
     if (res.ok && data.success) {
-      msg.style.color = '#047857'; msg.textContent = '✓ Saved to Salesforce';
+      msg.style.color = '#047857'; msg.textContent = '✓ Saved';
       if (window._contactsById && window._contactsById[id]) {
         Object.assign(window._contactsById[id], payload);
       }
@@ -2744,7 +2734,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div style="background:#fff;border-radius:10px;width:420px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden;">
     <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#0072CE;">
       <div>
-        <div style="font-size:11px;color:#cfe6fb;">Edit Contact · Salesforce</div>
+        <div style="font-size:11px;color:#cfe6fb;">Contact</div>
         <div id="ce-title-name" style="font-size:15px;font-weight:700;color:#fff;">Edit Contact</div>
       </div>
       <span onclick="closeContactEdit()" style="font-size:20px;color:#fff;cursor:pointer;line-height:1;">✕</span>
@@ -2776,7 +2766,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div id="ce-msg" style="font-size:12px;min-height:18px;margin:8px 0;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button onclick="closeContactEdit()" style="padding:8px 16px;border:1px solid #d1d5db;background:#fff;border-radius:6px;font-size:13px;cursor:pointer;color:#374151;">Cancel</button>
-        <button id="ce-save" onclick="saveContactEdit()" style="padding:8px 16px;border:none;background:#0072CE;color:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Save to Salesforce</button>
+        <button id="ce-save" onclick="saveContactEdit()" style="padding:8px 16px;border:none;background:#0072CE;color:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Save</button>
       </div>
     </div>
   </div>
