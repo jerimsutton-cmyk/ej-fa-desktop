@@ -132,6 +132,10 @@ const CONTENT_MARKERS = {
   Enbl_Completed_EstateLesson: { marker: 'ENBL_EstateLesson', verb: 'Mark read' },
   Enbl_Completed_Scheduling: { marker: 'ENBL_Scheduling', verb: 'Mark complete' },
   Enbl_Completed_AgentforcePitch: { marker: 'ENBL_AgentforcePitch', verb: 'Mark complete' },
+  // "Generational Wealth Transfer (Web App)" video milestone. Its measure counts
+  // the learner's Tasks (no field filter), so a marker Task written when the video
+  // is watched is counted by the runtime engine and credits the milestone.
+  Training_Video_Watched: { marker: 'ENBL_NextGenVideo', verb: 'Mark watched' },
 };
 function markerTask(me, marker) {
   return { OwnerId: me, Subject: marker, Status: 'Completed', Type: 'Other', ActivityDate: isoDate() };
